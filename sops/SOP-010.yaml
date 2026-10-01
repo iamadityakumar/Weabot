@@ -1,0 +1,30 @@
+id: SOP-010
+title: Severe Thunderstorm and Lightning Ground Strike Hazard
+category: general
+severity: high
+applies_to:
+  - golf
+  - swimming
+  - pool
+  - lake
+  - fishing
+  - boating
+  - hiking
+  - hike
+  - running
+  - run
+  - cycling
+  - cycle
+  - park
+  - picnic
+  - sports
+  - outdoor
+conditions:
+  - type: threshold
+    field: weather_code
+    op: in
+    value: [95, 96, 99]
+advice: >
+  Active convective thunderstorm conditions with lightning (weather code 95/96/99) present lethal direct strike and ground current hazards.
+  Immediately cease all outdoor recreation, especially near open fields, golf courses, bodies of water, or tall isolated trees.
+  Seek substantial enclosed shelter inside a sturdy building or fully enclosed metal-roofed automobile. Follow the 30-30 safety rule: wait a full 30 minutes after hearing the last rumble of thunder before stepping back outside.

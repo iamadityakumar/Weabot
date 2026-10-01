@@ -1,0 +1,31 @@
+id: SOP-007
+title: Extreme Cold and Frostbite Risk for Vulnerable Populations
+category: vulnerable_groups
+severity: high
+applies_to:
+  - elderly
+  - senior
+  - grandma
+  - grandfather
+  - child
+  - children
+  - kid
+  - toddler
+  - infant
+  - baby
+  - walk
+  - stroll
+  - park
+conditions:
+  - type: compound
+    combinator: OR
+    clauses:
+      - field: temperature_2m
+        op: "<="
+        value: 0.0
+      - field: apparent_temperature
+        op: "<="
+        value: -5.0
+advice: >
+  Sub-freezing temperatures (<= 0°C) or severe wind chill (apparent temperature <= -5°C) pose critical hypothermia and frostbite risks, particularly for vulnerable populations including elderly individuals, infants, and young children whose thermoregulation is limited.
+  Restrict continuous outdoor exposure to under 15 minutes. Ensure thermal base layers, insulated windproof outer jackets, waterproof boots, mittens, and full face/head coverings.

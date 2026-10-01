@@ -1,0 +1,31 @@
+id: SOP-002
+title: Extreme Heat and Sunstroke Alert for Outdoor Exercise
+category: outdoor_exercise
+severity: high
+applies_to:
+  - running
+  - run
+  - jogging
+  - jog
+  - cycling
+  - cycle
+  - bike
+  - bicycling
+  - marathon
+  - football
+  - soccer
+  - tennis
+  - hiking
+  - hike
+  - workout
+  - cardio
+  - athletics
+conditions:
+  - type: threshold
+    field: apparent_temperature
+    op: ">="
+    value: 38.0
+advice: >
+  Apparent temperature (heat index) has reached dangerous levels of 38°C or higher, creating a high risk of heat cramps, heat exhaustion, and life-threatening heatstroke during exertion.
+  Strenuous outdoor exercise and athletic activities are strongly advised against.
+  If outdoor activity cannot be avoided, limit it strictly to early dawn before sunrise, drink electrolyte-rich fluids continuously, and seek shaded, air-conditioned shelter immediately if experiencing dizziness or nausea.

@@ -1,0 +1,36 @@
+id: SOP-001
+title: Regional Low-Pressure / Active Heavy Rain Alert
+category: general
+severity: high
+override: true
+applies_to:
+  - all
+  - outdoor
+  - commute
+  - travel
+  - cycling
+  - bike
+  - running
+  - walk
+  - picnic
+  - sports
+conditions:
+  - type: compound
+    combinator: OR
+    clauses:
+      - field: precipitation
+        op: ">="
+        value: 15.0
+      - type: compound
+        combinator: AND
+        clauses:
+          - field: precipitation_probability
+            op: ">="
+            value: 70
+          - field: rain
+            op: ">="
+            value: 10.0
+advice: >
+  An active heavy rain system / regional low-pressure alert is in effect for your area.
+  Severe surface waterlogging, hazardous transit conditions, and sudden localized flooding present acute safety hazards.
+  All non-essential outdoor travel and activities are unsafe and should be postponed until the weather system dissipates and roads clear.

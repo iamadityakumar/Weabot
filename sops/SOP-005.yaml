@@ -1,0 +1,28 @@
+id: SOP-005
+title: Wet Road and Heavy Rain Travel Hazard
+category: travel
+severity: moderate
+applies_to:
+  - driving
+  - drive
+  - commute
+  - travel
+  - transit
+  - car
+  - vehicle
+  - road trip
+  - highway
+  - motor
+conditions:
+  - type: compound
+    combinator: OR
+    clauses:
+      - field: precipitation_probability
+        op: ">="
+        value: 70
+      - field: precipitation
+        op: ">="
+        value: 5.0
+advice: >
+  Elevated precipitation (>= 5 mm) or high rain probability (>= 70%) creates wet pavement, hydroplaning risks, and significantly reduced tire braking distances.
+  Check local transit advisories prior to departure, decrease vehicle driving speed by at least 20%, double your following distance, and allow additional travel time for congestion.

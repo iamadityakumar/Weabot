@@ -1,0 +1,33 @@
+id: SOP-003
+title: Moderate Heat Exercise Caution and Hydration Protocol
+category: outdoor_exercise
+severity: moderate
+applies_to:
+  - running
+  - run
+  - jogging
+  - jog
+  - cycling
+  - cycle
+  - bike
+  - bicycling
+  - hiking
+  - hike
+  - workout
+  - sports
+  - cardio
+  - training
+conditions:
+  - type: compound
+    combinator: AND
+    clauses:
+      - field: apparent_temperature
+        op: ">="
+        value: 32.0
+      - field: apparent_temperature
+        op: "<"
+        value: 38.0
+advice: >
+  Elevated thermal stress with apparent temperatures between 32°C and 37.9°C requires heightened precautions during outdoor exercise.
+  Pace exertion conservatively, reduce workout intensity by 20–30%, take frequent hydration breaks every 15–20 minutes, and seek shade whenever possible.
+  Consider rescheduling heavy aerobic endurance training to the cooler morning hours or late evening.

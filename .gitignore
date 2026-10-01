@@ -1,0 +1,34 @@
+# Environment and secrets
+.env
+.env.local
+*.key
+*.pem
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+.vite/
+
+# Graphify & build caches
+.graphify_*
+graphify-out/.graphify_*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+graphify-out/

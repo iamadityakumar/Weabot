@@ -1,0 +1,22 @@
+id: SOP-006
+title: Dense Fog and Low Visibility Travel Hazard
+category: travel
+severity: high
+applies_to:
+  - driving
+  - drive
+  - commute
+  - travel
+  - road
+  - highway
+  - cycling
+  - walk
+conditions:
+  - type: threshold
+    field: weather_code
+    op: in
+    value: [45, 48]
+advice: >
+  Dense fog or depositing rime fog (weather code 45/48) drastically impairs visibility down to dangerous stopping distances.
+  Delay non-critical highway trips until morning burns off the fog bank.
+  If operating a vehicle, activate low-beam headlights and dedicated fog lamps (never high beams which reflect back), increase headway distances threefold, and avoid passing maneuvers.

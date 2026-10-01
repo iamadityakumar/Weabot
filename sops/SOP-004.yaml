@@ -1,0 +1,31 @@
+id: SOP-004
+title: High Wind Danger for Cycling and Two-Wheelers
+category: travel
+severity: high
+applies_to:
+  - cycling
+  - cycle
+  - bike
+  - bicycle
+  - biking
+  - two-wheeler
+  - motorbike
+  - motorcycle
+  - scooter
+  - moped
+  - pedaling
+  - ride
+conditions:
+  - type: compound
+    combinator: OR
+    clauses:
+      - field: wind_speed_10m
+        op: ">"
+        value: 40.0
+      - field: wind_gusts_10m
+        op: ">"
+        value: 55.0
+advice: >
+  Sustained wind speeds exceeding 40 km/h or sudden gusts exceeding 55 km/h present severe balance and directional control hazards for cycling and two-wheelers, with acute danger of being pushed into vehicular traffic lanes.
+  Postponing the ride or switching to four-wheeled enclosed transit is strongly advised.
+  If travel is unavoidable, avoid exposed bridges and open overpasses, ride well below standard speeds, and remain vigilant for flying debris.

@@ -1,0 +1,42 @@
+# ==============================================================================
+# Caddyfile — Outdoor Activity Safety Advisor Production Web Server & Reverse Proxy
+# ==============================================================================
+# Serves static Vite React SPA assets from /var/www/advisor/dist and reverse-proxies
+# /api/* requests to FastAPI Uvicorn running on 127.0.0.1:8000.
+# Features automatic TLS/SSL certificate issuance via Let's Encrypt / ZeroSSL.
+# ==============================================================================
+
+# Replace with your production domain or dynamic DNS hostname (e.g., advisor.example.com)
+:80, :443 {
+    # Optional production hostname:
+    # advisor.yourdomain.com {
+
+    # Enable modern compression
+    encode gzip zstd
+
+    # Root directory for static production frontend assets
+    root * /var/www/advisor/dist
+    file_server
+
+    # Reverse proxy backend API endpoints to FastAPI Uvicorn
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # SPA routing fallback: redirect all non-file route requests to index.html
+    handle {
+        try_files {path} /index.html
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

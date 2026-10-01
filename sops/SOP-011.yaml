@@ -1,0 +1,27 @@
+id: SOP-011
+title: Ideal Conditions for Family Picnic and Outdoor Gathering
+category: general_leisure
+severity: low
+applies_to:
+  - picnic
+  - park
+  - barbecue
+  - bbq
+  - gathering
+  - family outing
+  - outdoor party
+  - stroll
+  - leisure
+conditions:
+  - type: fuzzy
+    description: >
+      Pleasant, mild, and dry weather conditions ideal for open-air dining, family park visits, and outdoor gatherings.
+      Evaluated positively when temperatures are comfortable (18°C to 26°C), wind is gentle (< 20 km/h), rain probability is very low (< 20%), and sky conditions are fair.
+    criteria:
+      temp_range: [18.0, 26.0]
+      max_wind: 20.0
+      max_precip_prob: 20
+      max_precip: 0.0
+advice: >
+  Current weather conditions are optimal for an outdoor picnic, park outing, or family gathering.
+  Temperatures are mild and comfortable, winds are gentle, and risk of precipitation is negligible. Enjoy the outing with basic personal hydration and light sun protection.

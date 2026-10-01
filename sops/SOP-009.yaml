@@ -1,0 +1,21 @@
+id: SOP-009
+title: Hot Pavement and Heat Stress Hazard for Pets
+category: vulnerable_groups
+severity: moderate
+applies_to:
+  - pet
+  - dog
+  - puppy
+  - canine
+  - cat
+  - dog walk
+  - walking dog
+conditions:
+  - type: threshold
+    field: temperature_2m
+    op: ">="
+    value: 28.0
+advice: >
+  Ambient air temperatures at or above 28°C under direct solar radiation cause asphalt, macadam, and stone pavers to heat to over 50°C, causing excruciating paw pad burns and rapid heat exhaustion in pets.
+  Perform the 7-second bare palm test on the ground before walking; if too hot for your hand, it is too hot for paw pads.
+  Confine pet walks to grassy or shaded paths, schedule walks during early morning or after sunset, and carry ample fresh drinking water.

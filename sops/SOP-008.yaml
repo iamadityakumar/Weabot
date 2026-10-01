@@ -1,0 +1,25 @@
+id: SOP-008
+title: High UV Radiation Exposure Hazard for Children and Sensitive Skin
+category: vulnerable_groups
+severity: high
+applies_to:
+  - child
+  - children
+  - kid
+  - toddler
+  - infant
+  - baby
+  - playground
+  - park
+  - swimming
+  - pool
+  - outdoor
+conditions:
+  - type: threshold
+    field: uv_index
+    op: ">="
+    value: 8.0
+advice: >
+  Very high UV index (>= 8.0) delivers damaging solar ultraviolet radiation capable of burning delicate children's skin in under 10–15 minutes.
+  Strongly advise avoiding unprotected playground or park exposure between 11:00 AM and 4:00 PM when solar elevation is peak.
+  If outside during midday, mandatory precautions include generous broad-spectrum SPF 50+ sunscreen reapplied every 90 minutes, wide-brimmed sun hats, UV400 sunglasses, and staying under shaded canopies.

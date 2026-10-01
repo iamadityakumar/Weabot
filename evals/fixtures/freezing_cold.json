@@ -1,0 +1,18 @@
+{
+  "latitude": 45.42,
+  "longitude": -75.69,
+  "timezone": "America/Toronto",
+  "current": {
+    "time": "2026-10-01T08:00",
+    "temperature_2m": -2.0,
+    "apparent_temperature": -6.5,
+    "wind_speed_10m": 15.0,
+    "wind_gusts_10m": 22.0,
+    "precipitation": 0.0,
+    "precipitation_probability": 10,
+    "rain": 0.0,
+    "weather_code": 1,
+    "uv_index": 1.0,
+    "relative_humidity_2m": 70
+  }
+}
