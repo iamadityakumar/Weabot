@@ -249,16 +249,16 @@ async def chat_endpoint(request: ChatRequest):
 
         # Resolve friendly model name for client display
         req_norm = (requested_model or "").lower()
-        if "3.8" in req_norm or "flash" in req_norm:
-            display_model_name = "Gemini 3.8 Flash"
-        elif "pro" in req_norm:
-            display_model_name = "Gemini 1.5 Pro"
+        if "qwen" in req_norm:
+            display_model_name = "Qwen 3.8 27B (Groq)"
         elif "120b" in req_norm:
             display_model_name = "GPT-OSS 120B (Groq)"
         elif "20b" in req_norm:
             display_model_name = "GPT-OSS 20B (Groq)"
-        elif "qwen" in req_norm or "groq" in req_norm:
-            display_model_name = "Qwen 3.8 27B (Groq)"
+        elif "pro" in req_norm:
+            display_model_name = "Gemini 1.5 Pro"
+        elif "gemini" in req_norm or "flash" in req_norm or "3.8" in req_norm:
+            display_model_name = "Gemini 3.8 Flash"
         elif "deterministic" in req_norm:
             display_model_name = "Open-Meteo Deterministic"
         else:

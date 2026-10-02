@@ -143,16 +143,16 @@ def model_identity_node(state: AgentState) -> Dict[str, Any]:
     requested_model = state.get("requested_model") or settings.GEMINI_MODEL
     norm = str(requested_model).lower()
 
-    if "3.8" in norm or "flash" in norm:
-        display_name = "Gemini 3.8 Flash (Google DeepMind)"
-    elif "pro" in norm:
-        display_name = "Gemini 1.5 Pro (Google DeepMind)"
+    if "qwen" in norm:
+        display_name = "Qwen 3.8 27B (Groq Cloud)"
     elif "120b" in norm:
         display_name = "GPT-OSS 120B (Groq Cloud)"
     elif "20b" in norm:
         display_name = "GPT-OSS 20B (Groq Cloud)"
-    elif "qwen" in norm or "groq" in norm:
-        display_name = "Qwen 3.8 27B (Groq Cloud)"
+    elif "pro" in norm:
+        display_name = "Gemini 1.5 Pro (Google DeepMind)"
+    elif "gemini" in norm or "flash" in norm or "3.8" in norm:
+        display_name = "Gemini 3.8 Flash (Google DeepMind)"
     elif "deterministic" in norm:
         display_name = "Open-Meteo Deterministic (Safety Graph Engine)"
     else:
