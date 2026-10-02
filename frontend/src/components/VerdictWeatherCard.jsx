@@ -206,44 +206,74 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
   const uvNum = parseFloat(uv);
   const uvLevel = uvNum < 3 ? 'Low' : uvNum < 6 ? 'Mod' : uvNum < 8 ? 'High' : 'Very High';
 
-  // Determine Verdict Status
-  const status = (verdict?.status || (sopCitations.length > 0 ? 'CAUTION' : 'SAFE')).toUpperCase();
-  const isSafe = status === 'SAFE';
-  const isCaution = status === 'CAUTION';
-  const isUncovered = status === 'UNCOVERED' || status === 'NO_MATCH';
-  const isUnsafe = status === 'UNSAFE' || status === 'DANGER';
+  // Comprehensive 7-state Verdict Status Taxonomy
+  const status = (verdict?.status || (sopCitations.length > 0 ? 'CAUTION' : 'NO_HAZARD_MATCHED')).toUpperCase();
 
-  const verdictStyles = isSafe
-    ? {
-        badge: 'bg-emerald-500 text-white shadow-emerald-900/20',
-        icon: CheckCircle2,
-        label: 'OK TO GO · CONDITIONS SAFE',
-        title: verdict?.title || 'Safe to Proceed with Activity',
-        summary: verdict?.summary || 'Weather conditions and environmental factors are optimal.',
-      }
-    : isCaution
-    ? {
-        badge: 'bg-amber-500 text-white shadow-amber-900/20',
-        icon: AlertTriangle,
-        label: 'CAUTION ADVISED · MONITOR WEATHER',
-        title: verdict?.title || 'Caution Advised · Review Precautions',
-        summary: verdict?.summary || 'Active conditions warrant precautions (UV, hydration, or breeze).',
-      }
-    : isUncovered
-    ? {
-        badge: 'bg-slate-500 text-white shadow-slate-900/20',
-        icon: ShieldCheck,
-        label: 'NO SPECIFIC POLICY · UNCOVERED',
-        title: verdict?.title || 'No Specific Policy Available',
-        summary: verdict?.summary || 'No approved Standard Operating Procedure covers this activity.',
-      }
-    : {
-        badge: 'bg-rose-600 text-white shadow-rose-900/20',
-        icon: AlertOctagon,
-        label: 'HAZARD WARNING · NOT RECOMMENDED',
-        title: verdict?.title || 'Hazardous Weather · Not Advised',
-        summary: verdict?.summary || 'Critical safety thresholds exceeded! Storm, wind, or extreme temperatures.',
-      };
+  const isNoHazard = status === 'NO_HAZARD_MATCHED' || status === 'SAFE' || status === 'NORMAL';
+  const isCaution = status === 'CAUTION';
+  const isUnsafe = status === 'UNSAFE' || status === 'DANGER' || status === 'HAZARD';
+  const isNoPolicy = status === 'NO_POLICY' || status === 'UNCOVERED' || status === 'NO_MATCH';
+  const isOutOfScope = status === 'OUT_OF_SCOPE';
+  const isDataUnavailable = status === 'DATA_UNAVAILABLE';
+
+  let verdictStyles;
+  if (isUnsafe) {
+    verdictStyles = {
+      badge: 'bg-rose-600 text-white shadow-rose-900/20',
+      icon: AlertOctagon,
+      label: 'HAZARD WARNING · NOT RECOMMENDED',
+      title: verdict?.title || 'Hazardous Weather · Not Advised',
+      summary: verdict?.summary || 'Critical safety thresholds exceeded! High winds, storm, or extreme weather.',
+    };
+  } else if (isCaution) {
+    verdictStyles = {
+      badge: 'bg-amber-500 text-white shadow-amber-900/20',
+      icon: AlertTriangle,
+      label: 'CAUTION ADVISED · MONITOR WEATHER',
+      title: verdict?.title || 'Caution Advised · Review Precautions',
+      summary: verdict?.summary || 'Active conditions warrant precautions (UV, hydration, or wind).',
+    };
+  } else if (isNoHazard) {
+    verdictStyles = {
+      badge: 'bg-emerald-600 text-white shadow-emerald-900/20',
+      icon: CheckCircle2,
+      label: 'NO ACTIVE HAZARDS · BELOW ALERT THRESHOLDS',
+      title: verdict?.title || 'Advisory Checked · No Active Hazard SOP',
+      summary: verdict?.summary || 'Current model-based conditions are below active hazard alert thresholds.',
+    };
+  } else if (isNoPolicy) {
+    verdictStyles = {
+      badge: 'bg-slate-500 text-white shadow-slate-900/20',
+      icon: ShieldCheck,
+      label: 'NO SPECIFIC POLICY · UNCOVERED',
+      title: verdict?.title || 'No Specific Policy Available',
+      summary: verdict?.summary || 'No approved Standard Operating Procedure covers this activity.',
+    };
+  } else if (isOutOfScope) {
+    verdictStyles = {
+      badge: 'bg-gray-600 text-white shadow-gray-900/20',
+      icon: ShieldCheck,
+      label: 'OUT OF SCOPE · OPERATIONAL BOUNDARY',
+      title: verdict?.title || 'Out of Operational Scope',
+      summary: verdict?.summary || 'Query outside prospective outdoor safety evaluation scope.',
+    };
+  } else if (isDataUnavailable) {
+    verdictStyles = {
+      badge: 'bg-amber-600 text-white shadow-amber-900/20',
+      icon: AlertTriangle,
+      label: 'TELEMETRY UNAVAILABLE · SERVICE OFFLINE',
+      title: verdict?.title || 'Weather Telemetry Unavailable',
+      summary: verdict?.summary || 'Live weather observations could not be verified.',
+    };
+  } else {
+    verdictStyles = {
+      badge: 'bg-emerald-600 text-white shadow-emerald-900/20',
+      icon: CheckCircle2,
+      label: 'ADVISORY CHECKED · NO ACTIVE HAZARDS',
+      title: verdict?.title || 'Advisory Evaluated',
+      summary: verdict?.summary || 'Current conditions evaluated against standard operating procedures.',
+    };
+  }
 
   const VerdictIcon = verdictStyles.icon;
 
