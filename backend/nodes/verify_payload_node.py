@@ -62,7 +62,19 @@ def verify_payload_node(state: AgentState) -> Dict[str, Any]:
                 target_slice["time"] = times[matched_idx]
                 effective_weather["current"] = target_slice
 
+    api_source = dict(state.get("api_source") or {})
+    if effective_weather.get("current"):
+        if api_source and "response_summary" in api_source:
+            api_source["response_summary"] = dict(api_source["response_summary"])
+            api_source["response_summary"]["current"] = effective_weather["current"]
+        if api_source and "timing" in api_source:
+            api_source["timing"] = dict(api_source["timing"])
+            if iso_target:
+                api_source["timing"]["evaluated_target_time"] = iso_target
+
     return {
         "effective_weather": effective_weather,
+        "weather_data": effective_weather,
+        "api_source": api_source,
         "turn_state": turn_state
     }

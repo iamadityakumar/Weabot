@@ -263,8 +263,13 @@ export default function MessageBubble({ message, userName = 'Aditya' }) {
             {/* Grid 3: Telemetry Data Received */}
             {sourceInfo.response_summary?.current && (
               <div className="bg-white p-2.5 rounded-lg border border-purple-100/70">
-                <div className="text-[10.5px] font-semibold text-purple-900 uppercase tracking-wide mb-1.5">
-                  3. Key Telemetry Parameters Received
+                <div className="text-[10.5px] font-semibold text-purple-900 uppercase tracking-wide mb-1.5 flex items-center justify-between">
+                  <span>3. Key Telemetry Parameters Evaluated</span>
+                  {sourceInfo.timing?.target_time_display && (
+                    <span className="text-[9.5px] font-normal text-purple-700 font-mono lowercase first-letter:uppercase">
+                      {sourceInfo.timing.target_time_display}
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] font-mono">
                   <div className="bg-gray-50 p-1.5 rounded border border-gray-100">

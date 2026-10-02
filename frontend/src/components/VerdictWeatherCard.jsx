@@ -47,7 +47,7 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
   const getTimeOfDayTheme = (timeStr, code = 0) => {
     let hour = new Date().getHours();
     if (timeStr && typeof timeStr === 'string') {
-      const parts = timeStr.split('T');
+      const parts = timeStr.includes('T') ? timeStr.split('T') : timeStr.split(' ');
       if (parts[1]) {
         const parsedHour = parseInt(parts[1].split(':')[0], 10);
         if (!isNaN(parsedHour)) {
@@ -128,11 +128,23 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
   };
 
   const theme = getTimeOfDayTheme(curr.time, weatherCode);
+
+  // If Open-Meteo confirms daytime (is_day === 1), force daylight visual theme
+  if (curr.is_day !== undefined && Number(curr.is_day) === 1 && (theme.period === 'Night' || theme.period === 'Dawn')) {
+    theme.period = 'Daylight';
+    theme.label = 'Daylight';
+    theme.icon = Sun;
+    theme.bgGradient = 'bg-gradient-to-br from-[#15467b] via-[#246bb6] to-[#4094e4]';
+    theme.glowTop = 'bg-amber-300/35';
+    theme.glowBottom = 'bg-cyan-400/25';
+    theme.badgeBg = 'bg-white/20 text-white border-white/30';
+  }
+
   const TimeIcon = theme.icon;
 
   // Determine if it is currently night (using Open-Meteo is_day or local hour)
   const isNight = curr.is_day !== undefined 
-    ? curr.is_day === 0 
+    ? Number(curr.is_day) === 0 
     : (theme.period === 'Night' || theme.period === 'Dawn');
 
   // Weather condition text & icon resolver (swaps Sun -> Moon at nights)
@@ -207,11 +219,11 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
   const uvLevel = uvNum < 3 ? 'Low' : uvNum < 6 ? 'Mod' : uvNum < 8 ? 'High' : 'Very High';
 
   // Comprehensive 7-state Verdict Status Taxonomy
-  const status = (verdict?.status || (sopCitations.length > 0 ? 'CAUTION' : 'NO_HAZARD_MATCHED')).toUpperCase();
+  const status = (verdict?.status || (sopCitations.length > 0 ? 'ADVISORY' : 'NO_HAZARD_MATCHED')).toUpperCase();
 
-  const isNoHazard = status === 'NO_HAZARD_MATCHED' || status === 'SAFE' || status === 'NORMAL';
-  const isCaution = status === 'CAUTION';
   const isUnsafe = status === 'UNSAFE' || status === 'DANGER' || status === 'HAZARD';
+  const isCaution = status === 'CAUTION' || status === 'ADVISORY' || (sopCitations.length > 0 && !isUnsafe);
+  const isNoHazard = (status === 'NO_HAZARD_MATCHED' || status === 'SAFE' || status === 'NORMAL') && sopCitations.length === 0;
   const isNoPolicy = status === 'NO_POLICY' || status === 'UNCOVERED' || status === 'NO_MATCH';
   const isOutOfScope = status === 'OUT_OF_SCOPE';
   const isDataUnavailable = status === 'DATA_UNAVAILABLE';
@@ -229,7 +241,9 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
     verdictStyles = {
       badge: 'bg-amber-500 text-white shadow-amber-900/20',
       icon: AlertTriangle,
-      label: 'CAUTION ADVISED · MONITOR WEATHER',
+      label: verdict?.severity === 'moderate' || status === 'ADVISORY'
+        ? 'SAFETY ADVISORY · PRECAUTIONS REQUIRED'
+        : 'CAUTION ADVISED · MONITOR WEATHER',
       title: verdict?.title || 'Caution Advised · Review Precautions',
       summary: verdict?.summary || 'Active conditions warrant precautions (UV, hydration, or wind).',
     };

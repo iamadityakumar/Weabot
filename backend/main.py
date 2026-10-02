@@ -289,7 +289,7 @@ async def chat_endpoint(request: ChatRequest):
 
         final_response = result.get("final_response") or "No response could be generated."
         citations = result.get("sop_citations") or []
-        weather_data = result.get("weather_data")
+        weather_data = result.get("effective_weather") or result.get("weather_data")
         session_facts = result.get("session_facts")
         err_msg = result.get("error_message")
         verdict = result.get("verdict")
