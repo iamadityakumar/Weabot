@@ -237,6 +237,7 @@ export default function App() {
         weatherData: data.weather_data,
         sessionFacts: data.session_facts,
         verdict: data.verdict,
+        apiSource: data.api_source,
         modelUsed: data.model_used || selectedModel,
         timestamp: new Date().toISOString(),
       };

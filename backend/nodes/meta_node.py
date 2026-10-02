@@ -33,18 +33,18 @@ def meta_node(state: AgentState) -> Dict[str, Any]:
             if not fired:
                 response = (
                     f"No clearance was given. Earlier in this session regarding {activity} in {place}, Weabot verified conditions were below active hazard alert thresholds. "
-                    "As explicitly stated in our guidelines, Weabot does not issue general safety clearances, guarantees, or 'safe to go' endorsements. "
+                    "As explicitly stated in our guidelines, Weabot does not issue general safety clearances, guarantees, or endorsement of conditions. "
                     "Conditions can shift rapidly, and users must evaluate real-time local circumstances."
                 )
             else:
                 fired_str = ", ".join(fired)
                 response = (
                     f"No clearance was given. In our earlier assessment for {activity} in {place}, active hazard advisories ({fired_str}) were identified based on meteorological data. "
-                    "Weabot did not clear or endorse the activity as safe. We strictly advise following authorized safety protocols."
+                    "Weabot did not clear or endorse the activity. We strictly advise following authorized safety protocols."
                 )
         else:
             response = (
-                "No clearance was given. Weabot does not issue general safety clearances, guarantees, or 'safe to go' endorsements. "
+                "No clearance was given. Weabot does not issue general safety clearances, guarantees, or endorsement of conditions. "
                 "All assessments evaluate meteorological thresholds against Standard Operating Procedures (SOPs) without subjective clearances."
             )
         

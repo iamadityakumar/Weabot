@@ -62,12 +62,21 @@ def to_gerund(activity_raw: Optional[str]) -> str:
 FOLLOW_UP_PHRASES = [
     "what about", "how about", "and tomorrow", "and next", "is tomorrow", "is it better",
     "what's it like here", "what is it like here", "weather here", "and back to",
-    "you said", "anything changed", "since you last checked"
+    "you said", "anything changed", "since you last checked",
+    "can i take", "can we take", "can i bring", "can we bring", "can my", "with my", "for my",
+    "along", "can we", "is it ok for", "is it okay for", "there instead", "here instead",
+    "can i go for", "can i do", "what about there"
 ]
 
 def is_followup_query(query: str) -> bool:
     q = query.strip().lower()
     if any(p in q for p in FOLLOW_UP_PHRASES):
+        return True
+    # Subject inquiry without a location preposition (e.g. "Can I take my 75-year-old grandpa along?")
+    if extract_subject(q) != "adult" and not any(p in q for p in [" in ", " at ", " near ", " around "]):
+        return True
+    # Queries referencing relative location
+    if any(w in q for w in ["there instead", "here instead", "over there", "instead"]):
         return True
     # Ellipsis follow-up like "cycling?" or "and cycling?" or "walking?"
     words = re.findall(r"\b\w+\b", q)
@@ -251,8 +260,16 @@ def parse_turn_node(state: AgentState) -> Dict[str, Any]:
 
     # If raw_loc was not found by LLM and query is not follow-up, extract non-activity tokens as candidate location
     if not raw_loc and not is_followup:
+        non_loc_words = {
+            "cycling", "walking", "running", "driving", "outdoor", "activity", "is", "it",
+            "safe", "to", "for", "a", "the", "in", "at", "can", "could", "i", "we", "you",
+            "my", "our", "take", "bring", "along", "instead", "there", "here", "grandpa",
+            "grandma", "grandfather", "grandmother", "elderly", "senior", "child", "children",
+            "kid", "kids", "dog", "cat", "pet", "pets", "go", "come", "get", "do", "with",
+            "about", "how", "what", "tell", "me", "us", "okay", "ok", "fine", "and"
+        }
         tokens = [w for w in re.findall(r"\b[A-Za-z0-9_\-]+\b", user_query) if w.lower() not in TEMPORAL_STOP_WORDS and w.lower() not in INVALID_LOCATION_WORDS]
-        cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in ("cycling", "walking", "running", "driving", "outdoor", "activity", "is", "it", "safe", "to", "for", "a", "the", "in", "at")]
+        cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in non_loc_words]
         if cand_tokens:
             cand_str = " ".join(cand_tokens)
             raw_loc = cand_str

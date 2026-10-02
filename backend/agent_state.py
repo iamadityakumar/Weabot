@@ -72,6 +72,7 @@ class AgentState(TypedDict, total=False):
     final_response: Optional[str]
     sop_citations: List[str]
     requested_model: Optional[str]
+    api_source: Optional[Dict[str, Any]]
     
     # Backward compatibility slots
     session_facts: SessionFacts

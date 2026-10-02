@@ -213,7 +213,7 @@ def no_match_node(state: AgentState) -> Dict[str, Any]:
         response_text = (
             f"Active Standard Operating Procedures (including heat, wind, and precipitation protocols) were evaluated for **{activity}** in **{location}**{time_phrase}, and **no hazard alert thresholds were exceeded**.\n\n"
             f"• **Model-based Current Conditions**: Temperature ~{temp_str}, wind {wind_str}, precipitation {precip_str}.\n\n"
-            "*(Note: While measured weather parameters are below active hazard alert thresholds, Weabot does not issue general safety clearances or 'safe to go' endorsements. Please stay mindful of changing conditions.)*"
+            "*(Note: While measured weather parameters are below active hazard alert thresholds, Weabot does not issue general safety clearances or clearance endorsements. Please stay mindful of changing conditions.)*"
             f"{hourly_note}{aqi_note}{imd_note}{temp_note}{premise_note}{freshness_note}{multi_city_note}"
         )
         verdict = {

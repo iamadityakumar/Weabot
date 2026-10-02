@@ -72,6 +72,12 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
             # Trim trailing temporal tokens
             cand = re.sub(r"\b(today|tomorrow|yesterday|now|right now|this|next)\b.*$", "", cand, flags=re.IGNORECASE).strip()
 
+    # Relative spatial references (e.g. 'there', 'there instead', 'here') are carry-overs, not place names
+    if cand:
+        clean_cand = cand.strip().lower()
+        if clean_cand in ("here", "there", "everywhere", "there instead", "here instead", "around here", "over there") or clean_cand.endswith(" instead"):
+            cand = None
+
     # 5. Geocode candidate or apply follow-up carry-over
     weather_client = get_weather_client()
 

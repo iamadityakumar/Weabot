@@ -44,6 +44,7 @@ class ChatResponse(BaseModel):
     error_message: Optional[str] = None
     verdict: Optional[Dict[str, Any]] = None
     model_used: Optional[str] = None
+    api_source: Optional[Dict[str, Any]] = None
 
 @app.get("/api/health")
 async def health_check():
@@ -246,6 +247,7 @@ async def chat_endpoint(request: ChatRequest):
         session_facts = result.get("session_facts")
         err_msg = result.get("error_message")
         verdict = result.get("verdict")
+        api_source = result.get("api_source")
 
         # Resolve friendly model name for client display
         req_norm = (requested_model or "").lower()
@@ -293,6 +295,7 @@ async def chat_endpoint(request: ChatRequest):
                 "weatherData": weather_data,
                 "sessionFacts": session_facts,
                 "verdict": verdict,
+                "apiSource": api_source,
                 "modelUsed": display_model_name,
                 "timestamp": now_iso
             }
@@ -316,7 +319,8 @@ async def chat_endpoint(request: ChatRequest):
             session_facts=session_facts,
             error_message=err_msg,
             verdict=verdict,
-            model_used=display_model_name
+            model_used=display_model_name,
+            api_source=api_source
         )
 
     except Exception as e:
