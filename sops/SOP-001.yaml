@@ -1,5 +1,5 @@
 id: SOP-001
-title: Regional Low-Pressure / Active Heavy Rain Alert
+title: Severe Precipitation and Surface Flooding Hazard
 category: general
 severity: high
 override: true
@@ -31,6 +31,6 @@ conditions:
             op: ">="
             value: 10.0
 advice: >
-  An active heavy rain system / regional low-pressure alert is in effect for your area.
-  Severe surface waterlogging, hazardous transit conditions, and sudden localized flooding present acute safety hazards.
-  All non-essential outdoor travel and activities are unsafe and should be postponed until the weather system dissipates and roads clear.
+  High-intensity precipitation conditions (precipitation >= 15 mm, or >= 10 mm rainfall with high probability >= 70%) indicate rapid surface water accumulation, reduced visibility, and localized flooding hazards.
+  All non-essential outdoor travel and activities are unsafe and should be postponed until conditions clear.
+

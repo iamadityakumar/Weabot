@@ -1,0 +1,111 @@
+# Activity aliases and taxonomy mapping for Weabot Safety Advisor
+# Enables zero-code activity alias additions and synonym expansions
+
+transit:
+  canonical: transit
+  category: travel
+  aliases:
+    - scooter
+    - moped
+    - two-wheeler
+    - two wheeler
+    - motorbike
+    - motorcycle
+    - vespa
+    - scooty
+    - two-wheeler commute
+
+cycling:
+  canonical: cycling
+  category: outdoor_exercise
+  aliases:
+    - cycling
+    - cycle
+    - bike
+    - biking
+    - bicycle
+    - bicycling
+    - pedaling
+    - cycle chalana
+    - road bike
+    - mountain bike
+
+running:
+  canonical: running
+  category: outdoor_exercise
+  aliases:
+    - running
+    - run
+    - jogging
+    - jog
+    - marathon
+    - sprint
+    - trail running
+    - cardio
+
+walking:
+  canonical: walking
+  category: outdoor_exercise
+  aliases:
+    - walking
+    - walk
+    - stroll
+    - grandpa
+    - morning walk
+    - evening walk
+
+playground:
+  canonical: playground
+  category: general_leisure
+  aliases:
+    - playground
+    - swings
+    - swing
+    - slide
+    - jungle gym
+    - toddler play
+    - kids park
+
+pets:
+  canonical: pets
+  category: general_leisure
+  aliases:
+    - dog walk
+    - walk dog
+    - dog
+    - puppy
+    - walking dog
+    - pet walk
+    - cat
+
+picnic:
+  canonical: picnic
+  category: general_leisure
+  aliases:
+    - picnic
+    - barbecue
+    - bbq
+    - park outing
+    - family picnic
+    - outdoor gathering
+
+travel:
+  canonical: travel
+  category: travel
+  aliases:
+    - driving
+    - drive
+    - road trip
+    - commute
+    - highway
+    - car trip
+
+industrial_safety:
+  canonical: industrial_safety
+  category: industrial_safety
+  aliases:
+    - crane
+    - crane operation
+    - hoisting
+    - rigging
+    - scaffolding

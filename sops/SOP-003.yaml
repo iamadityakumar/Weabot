@@ -17,6 +17,12 @@ applies_to:
   - sports
   - cardio
   - training
+  - walking
+  - walk
+  - stroll
+  - grandpa
+  - elderly
+
 conditions:
   - type: compound
     combinator: AND

@@ -20,6 +20,6 @@ conditions:
     op: ">="
     value: 8.0
 advice: >
-  Very high UV index (>= 8.0) delivers damaging solar ultraviolet radiation capable of burning delicate children's skin in under 10–15 minutes.
-  Strongly advise avoiding unprotected playground or park exposure between 11:00 AM and 4:00 PM when solar elevation is peak.
-  If outside during midday, mandatory precautions include generous broad-spectrum SPF 50+ sunscreen reapplied every 90 minutes, wide-brimmed sun hats, UV400 sunglasses, and staying under shaded canopies.
+  Very high UV radiation (UV Index >= 8.0) delivers intense solar ultraviolet radiation requiring comprehensive sun protection per World Health Organization (WHO) and Cancer Council standards.
+  Strongly advise avoiding direct unshaded sun exposure between 10:00 AM and 4:00 PM during peak solar elevation.
+  If outdoor exposure cannot be avoided, apply broad-spectrum SPF 50+ sunscreen generously 20 minutes before exposure, reapply at least every 2 hours (or immediately after swimming or heavy sweating), wear UPF 50+ protective clothing and broad-brimmed hats, and remain under dense shade.

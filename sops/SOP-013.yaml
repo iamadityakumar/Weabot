@@ -1,0 +1,22 @@
+id: SOP-013
+title: Moderate UV Radiation Caution for Children and Playgrounds
+category: vulnerable_groups
+severity: moderate
+applies_to:
+  - child
+  - children
+  - kid
+  - toddler
+  - infant
+  - baby
+  - playground
+  - swings
+  - park
+conditions:
+  - type: range
+    field: uv_index
+    min: 6.0
+    max: 7.99
+advice: >
+  High UV radiation (UV Index 6.0–7.9) poses elevated sunburn and skin damage risk to sensitive skin of toddlers and children per WHO Global Solar UV Index (WHO 2002) and Cancer Council standards.
+  Ensure children apply broad-spectrum SPF 30+ or SPF 50+ sunscreen generously 20 minutes before heading out, wear broad-brimmed hats and UPF protective clothing, and seek shade between 10:00 AM and 4:00 PM during peak solar elevation. Check that metal and plastic slide or swing surfaces are not hot enough to cause thermal contact burns before play.

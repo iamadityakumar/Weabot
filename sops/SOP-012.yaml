@@ -16,9 +16,14 @@ conditions:
       Marginal or unsettled outdoor conditions where gatherings can proceed but require weather contingency plans.
       Evaluated positively when there are gusty breezes (25 to 38 km/h), borderline rain probability (30% to 60%), or marginal ambient temperatures (14°C to 17°C or 27°C to 31°C).
     criteria:
+      requires_daylight: true
       elevated_wind_range: [25.0, 38.0]
       borderline_rain_prob_range: [30, 60]
+      marginal_temp_ranges:
+        - [14.0, 17.0]
+        - [27.0, 34.0]
+
 advice: >
-  Weather conditions for an outdoor gathering or picnic are marginal and unsettled.
-  Elevated breezes or a borderline chance of precipitation may disrupt open-air setups, paper goods, or portable awnings.
-  You may proceed, but ensure a designated covered pavilion or indoor fallback area is immediately accessible and keep light waterproof jackets on hand.
+  Weather conditions for an outdoor gathering or picnic are marginal.
+  Warm daytime temperatures (27°C–34°C), elevated breezes, or borderline precipitation require practical adjustments.
+  You may proceed, but secure shade under trees or canopies, keep plenty of drinking water available to prevent dehydration in the heat, and have a backup covered shelter accessible.

@@ -24,70 +24,59 @@ Consider an active India Meteorological Department (IMD) advisory flagging a wel
 
 ## 2. System Architecture & LangGraph Branching
 
-The system is implemented as an explicit **LangGraph** state machine (`backend/graph.py`) with strict conditional edges, deterministic barriers, and checkpointed session memory.
+The system is implemented as an explicit **LangGraph** state machine ([`backend/graph.py`](file:///D:/IIIT%20B/MB/backend/graph.py)) with strict conditional edges, deterministic barriers, and checkpointed session memory.
 
-```
-                           ┌──────────────┐
-             user query ──►│  intake_node │ (Extract activity, location, time window)
-                           └──────┬───────┘
-                                  │
-                        has location in query
-                        or in session_facts?
-                                  │
-                        ┌─────────┴─────────┐
-                     Yes│                   │ No
-                        ▼                   ▼
-               ┌──────────────────┐  ┌──────────────────┐
-               │ location_resolve │  │ ask_location_node│ ──► Prompt for city ──► END
-               │  (Geocoding API) │  └──────────────────┘
-               └─────────┬────────┘
-                         │
-                 geocode successful?
-                         │
-                 ┌───────┴───────┐
-              Yes│               │ No / Empty
-                 ▼               ▼
-        ┌────────────────┐ ┌────────────────┐
-        │ fetch_weather  │ │  failure_node  │ ──► "Unable to resolve location" ──► END
-        │(Open-Meteo API)│ └────────────────┘
-        └────────┬───────┘
-                 │
-           API call ok?
-                 │
-            ┌────┴────┐
-         Yes│         │ Timeout / 500
-            ▼         ▼
-       ┌───────────┐ ┌────────────────┐
-       │ match_sops│ │  failure_node  │ ──► "Weather service unreachable" ──► END
-       └─────┬─────┘ └────────────────┘
-             │
-       evaluated threshold + fuzzy SOPs
-             │
-        any matches?
-             │
-        ┌────┴────┐
-     Yes│         │ No
-        ▼         ▼
-     ┌──────────────┐ ┌────────────────┐
-     │ compose_node │ │ no_match_node  │ ──► "No specific safety policy covers this" ──► END
-     └──────┬───────┘ └────────────────┘
-            │
-            ▼
-           END
+```mermaid
+flowchart TD
+    START([User Query]) --> intake[intake_node<br>Extract activity, location, time window]
+    
+    intake -->|Out of scope: stocks, Everest, prompt leak| out_of_scope[out_of_scope_node<br>Categorical refusal] --> END([END])
+    intake -->|Missing / emoji location| ask_loc[ask_location_node<br>Prompt for city] --> END
+    intake -->|Location present| loc_res[location_resolve<br>Geocoding API]
+    
+    loc_res -->|Geocoding failure| fail_loc[failure_node<br>Unable to resolve location] --> END
+    loc_res -->|Geocoding success| fetch_wx[fetch_weather<br>Open-Meteo REST API]
+    
+    fetch_wx -->|API timeout / 500| fail_wx[failure_node<br>Weather service unreachable] --> END
+    fetch_wx -->|Telemetry acquired| match[match_sops<br>Evaluate Universal Overrides<br>& Activity SOPs]
+    
+    match -->|Matches found| compose[compose_node<br>Constrained LLM Synthesis]
+    match -->|Uncovered / No hazard / Past / Horizon exceeded| no_match[no_match_node<br>Deterministic Honest Refusal]
+    
+    compose --> guard[number_guard<br>Deterministic Numeric Whitelist]
+    no_match --> guard
+    
+    guard --> END
 ```
 
 ### Component Nodes & Deterministic Boundaries
 
 | Node | Type | Responsibility & Safety Guardrail |
 |---|---|---|
-| `intake_node` | Bounded LLM / Rule Extractor | Extracts `{activity, location, time_window}`. Retains previous turn's location from `session_facts` on follow-ups. |
-| `ask_location_node` | **Deterministic** | Triggered when location is missing from query and session memory. Returns polite request for city. |
-| `location_resolve` | Deterministic Tool | Calls Open-Meteo Geocoding API (`/v1/search?name=<city>&count=5`). Populates coordinates in `session_facts`. |
-| `fetch_weather` | Deterministic Tool | Aggregates all fields dynamically required by active SOPs and calls Open-Meteo Forecast API. |
-| `match_sops` | **Deterministic Code** | Evaluates threshold conditions, compound logic, and fuzzy heuristics. Resolves multi-rule priority. |
+| `intake_node` | Bounded LLM / Rule Extractor | Extracts `{activity, location, time_window}`. Retains previous turn's location from `session_facts` on follow-ups. Detects out-of-scope queries and non-Latin input before geocoding. |
+| `out_of_scope_node` | **Deterministic** | Intercepts financial queries, extreme mountaineering, prompt leak attempts, and national early warning systems (`config/out_of_scope.yaml`). Returns polite categorical refusal without prompting for a city. |
+| `ask_location_node` | **Deterministic** | Triggered when location is missing from query and session memory or is non-Latin/emoji. Returns polite request for city. |
+| `location_resolve` | Deterministic Tool | Calls Open-Meteo Geocoding API (`/v1/search?name=<city>&count=5`). Resolves canonical place names and populates coordinates in `session_facts`. |
+| `fetch_weather` | Deterministic Tool | Aggregates all fields dynamically required by active SOPs and calls Open-Meteo Forecast API. Preserves pre-supplied historical storm fixtures when present. |
+| `match_sops` | **Deterministic Code** | Evaluates universal overrides first (`override: true`, e.g. `SOP-001`), then activity-specific rules. Grounded in explicit target time slice (resolving "this weekend", "tonight", "tomorrow morning"). |
 | `compose_node` | Constrained LLM | Synthesizes natural language answer using **strictly** advice text from matched SOPs and numbers from the API. Appends SOP citation badges. |
-| `no_match_node` | **Deterministic** | Outputs fixed honest fallback: *"We checked live conditions, but no policy covers this activity/condition combination."* LLM is **never** invoked. |
+| `no_match_node` | **Deterministic** | Outputs distinct, honest fallbacks according to query status (`NO_POLICY`, `NO_HAZARD_MATCHED`, `DATA_UNAVAILABLE`, `OUT_OF_SCOPE`). LLM is **never** invoked. |
+| `number_guard` | **Deterministic Code** | Scans final text for all numbers, whitelisting against API payload, unit conversions, SOP literals, and user inputs. Replaces corrupted responses with safe deterministic fallback on mismatch. |
 | `failure_node` | **Deterministic** | Catches geocoding errors or weather outages. Refuses to invent synthetic forecasts. |
+
+### Deterministic 7-State Status Taxonomy
+
+Instead of overloading a generic "UNCOVERED" flag, the system reports 7 explicit, auditable statuses:
+
+| Status | Meaning | LLM Invoked? | Citations | Example Trigger |
+|---|---|---|---|---|
+| `UNSAFE` | Active danger threshold exceeded (high severity) | Yes (constrained) | `["SOP-001"]`, etc. | Sustained winds > 40 km/h for cyclists |
+| `CAUTION` | Marginal weather condition (moderate severity) | Yes (constrained) | `["SOP-003"]`, etc. | Apparent temp 32–37.9°C for runners |
+| `NO_HAZARD_MATCHED` | Activity is covered by policies, but conditions are calm | No | None | Light breeze & 22°C for outdoor cycling |
+| `NO_POLICY` | Activity is not covered by any authorized SOP | No | None | River swimming, commercial drone flight |
+| `OUT_OF_SCOPE` | Topic outside operational domain, past time, or horizon exceeded | No | None | Stock tips, Everest, past hours, >14d forecast |
+| `DATA_UNAVAILABLE` | Required telemetry variable is null/missing from API | No | None | Missing UV telemetry for children's playground |
+| `REFUSED` | System prompt extraction or adversarial override injection | No | None | "SYSTEM OVERRIDE: Ignore SOPs" |
 
 ---
 
@@ -137,22 +126,23 @@ To satisfy the live review requirement where an evaluator drops an 11th or 13th 
 
 ---
 
-## 4. Initial SOP Inventory (12 Active Policies)
+## 4. Initial SOP Inventory (13 Active Policies)
 
 | SOP ID | Title | Category | Severity | Type | Key Threshold / Criteria |
 |---|---|---|---|---|---|
-| **SOP-001** | Regional Low-Pressure / Active Heavy Rain Alert | General (Override) | High | Compound | `precipitation >= 15.0mm` OR (`precip_prob >= 70%` AND `rain >= 10.0mm`). Overrides all categories. |
+| **SOP-001** | Regional Low-Pressure / Active Heavy Rain Alert | General (Override) | High | Compound | `precipitation >= 15.0mm` OR (`precip_prob >= 70%` AND `rain >= 10.0mm`). Evaluates before activity eligibility; overrides all categories. |
 | **SOP-002** | Extreme Heat & Sunstroke Alert | Outdoor Exercise | High | Threshold | `apparent_temperature >= 38.0°C`. Exertion warning. |
 | **SOP-003** | Moderate Heat Exercise Caution | Outdoor Exercise | Moderate | Compound | `apparent_temperature` between 32.0°C and 37.9°C. Hydration & pacing. |
 | **SOP-004** | High Wind Danger for Two-Wheelers | Travel / Exercise | High | Compound | `wind_speed_10m > 40.0 km/h` OR `wind_gusts_10m > 55.0 km/h`. |
 | **SOP-005** | Wet Road / Heavy Rain Travel Hazard | Travel | Moderate | Compound | `precipitation_probability >= 70%` OR `precipitation >= 5.0mm`. |
 | **SOP-006** | Dense Fog & Low Visibility Travel | Travel | High | Threshold | `weather_code in [45, 48]`. Reduced speed and headlights. |
 | **SOP-007** | Extreme Cold / Frostbite Risk | Vulnerable Groups | High | Compound | `temperature_2m <= 0.0°C` OR `apparent_temperature <= -5.0°C`. Under 15m exposure. |
-| **SOP-008** | High UV Radiation Exposure for Children | Vulnerable Groups | High | Threshold | `uv_index >= 8.0`. Restrict midday exposure 11 AM - 4 PM. |
+| **SOP-008** | Extreme UV Radiation for Children (WHO 2002) | Vulnerable Groups | High | Threshold | `uv_index >= 8.0`. SPF 50+, mandatory shade 10 AM – 4 PM. |
 | **SOP-009** | Hot Pavement Hazard for Pets | Vulnerable Groups | Moderate | Threshold | `temperature_2m >= 28.0°C`. 7-second palm test on asphalt. |
 | **SOP-010** | Lightning & Thunderstorm Ground Hazard | General | High | Threshold | `weather_code in [95, 96, 99]`. Seek indoor shelter immediately; 30-30 rule. |
 | **SOP-011** | Ideal Family Picnic & Outdoor Leisure | General Leisure | Low | Fuzzy | Temp 18–26°C, wind < 20 km/h, rain prob < 20%, dry fair weather. |
-| **SOP-012** | Marginal / Unsettled Outdoor Gathering | General Leisure | Moderate | Fuzzy | Gusty wind 25–38 km/h OR rain prob 30–60%. Contingency shelter advised. |
+| **SOP-012** | Marginal / Unsettled Outdoor Gathering | General Leisure | Moderate | Fuzzy | Gusty wind 25–38 km/h OR rain prob 30–60%. Heat >= 32°C. Contingency shelter advised. |
+| **SOP-013** | Moderate-to-High UV Playground Caution (WHO 2002) | Vulnerable Groups | Moderate | Compound | `uv_index >= 6.0` AND `uv_index < 8.0`. SPF 30+, hat, sunglasses, reapply every 2 hours. |
 
 ---
 
@@ -193,7 +183,141 @@ During evaluation, test adding a brand-new policy on the fly:
 
 ---
 
-## 6. Setup & Execution Instructions
+## 6. Weabot UI & Dynamic Weather Telemetry
+
+- **Peer Guardian Safety Personality**:
+  - Replaces rigid, mechanical disclaimers with a warm, caring, soft, and protective **Peer Guardian** companion.
+  - Speaks with encouragement, empathy, and clarity while strictly preserving zero-hallucination policy guardrails.
+  - Offers thoughtful, activity-tailored tips (e.g. helmets & traffic awareness for cyclists, hydration & pacing for runners, comfortable shoes for walks).
+  - Clear real-time verdict badges (🟢 `OK TO GO · CONDITIONS SAFE`, 🟡 `CAUTION ADVISED`, 🔴 `HAZARD WARNING`).
+- **Dynamic Credential-Verified Model Selector**:
+  - Dropdown **strictly displays only models with verified API keys** present in `.env`, discovered dynamically via `GET /api/models`:
+    - **Google DeepMind**: Gemini 3.8 Flash, Gemini 1.5 Pro *(when `GEMINI_API_KEY` is set)*
+    - **Groq Cloud**: Qwen 3.8 27B, LLaMA 3.1 8B, DeepSeek-R1 *(when `GROQ_API_KEY` is set)*
+    - **Safety Graph Engine**: Open-Meteo Deterministic *(always available baseline)*
+  - Zero-downtime key discovery: adding keys to `.env` takes effect immediately without restarting the server.
+- **Unique Chat URLs & Persistent Sharing**:
+  - Each conversation is assigned a unique URL parameter: `?chat=<threadId>`.
+  - Share button copies the direct link (`${origin}/?chat=<threadId>`) with 1-click visual feedback.
+  - Full conversations are persisted on the backend (`sessions/<threadId>.json`) and retrievable via `GET /api/chat/<threadId>`, allowing shared links to load seamlessly across different browsers or devices.
+- **High-Resolution PNG Snapshot Export**:
+  - The **Export Snapshot** button uses `html2canvas` to render the complete conversation thread into a crisp, high-DPI image snapshot (`.png`).
+  - Includes a branded header banner (app title, selected model badge, date/time), complete message history with weather cards and verdict badges, and an audit footer with the Session ID.
+- **Astronomical Day/Night & Celestial Glyph Switching**:
+  - Employs Open-Meteo `is_day` telemetry and solar elevation angles to automatically swap solar glyphs (`Sun`, `CloudSun`) for nocturnal lunar glyphs (`Moon`, `CloudMoon`, `MoonStar`) at night across the hero graphic, hourly forecast intervals, and UV index indicator.
+- **Dynamic Time-of-Day Themes**:
+  - Automatically transitions atmospheric gradient backdrops between Dawn (sunrise rose), Daylight (azure/cerulean sky), Golden Hour (sunset amber/magenta), and Starlight Night (midnight navy/obsidian).
+- **Floating Glassmorphism Input Dock**:
+  - Frosted glass input dock (`backdrop-blur-2xl bg-white/80`) with ambient gradient blur mask (`backdrop-blur-[6px]`) that smoothly blurs conversation scrolling underneath.
+- **SOP Policy Studio**:
+  - In-app GUI allowing administrators to view, search, filter, edit, create, and delete SOPs with instant disk persistence and engine hot-reloading.
+
+---
+
+## 7. API Reference & Query Call Methods
+
+The backend exposes a fully typed REST API with automatic interactive OpenAPI documentation at `/docs`.
+
+### Primary Conversational Endpoint: `POST /api/chat`
+
+Runs a user query through the LangGraph safety state machine, fetching live Open-Meteo weather, evaluating SOP policies, and returning grounded advice.
+
+#### Request Parameters
+- **Endpoint**: `http://127.0.0.1:8000/api/chat`
+- **Method**: `POST`
+- **Headers**: `Content-Type: application/json`
+
+| Field | Type | Required? | Description |
+|---|---|---|---|
+| `message` | `string` | **Yes** | The user query (e.g. `"Is it safe to go cycling in Chicago right now?"` or follow-up `"What about this evening?"`). |
+| `thread_id` | `string` | *Optional* | Session UUID for multi-turn LangGraph `MemorySaver`. Reusing this ID preserves prior location and weather facts. |
+| `model` | `string` | *Optional* | Target LLM model name (e.g. `"Gemini 3.8 Flash"`, `"LLaMA 3.1 8B"`, or `"Open-Meteo Deterministic"`). |
+
+#### Response Schema (`ChatResponse`)
+```json
+{
+  "thread_id": "session-8a39d412-f01e",
+  "response": "Live weather conditions in Chicago are mild and safe for cycling...",
+  "sop_citations": ["SOP-004"],
+  "weather_data": {
+    "current": {
+      "temperature_2m": 22.2,
+      "wind_speed_10m": 9.8,
+      "precipitation": 0.0
+    }
+  },
+  "session_facts": {
+    "location_name": "Chicago",
+    "latitude": 41.85,
+    "longitude": -87.65
+  },
+  "verdict": {
+    "status": "SAFE",
+    "title": "OK to Go · Conditions Safe",
+    "severity": "low",
+    "summary": "Mild weather conditions in Chicago. No active hazard policies triggered for cycling."
+  },
+  "error_message": null,
+  "model_used": "Gemini 3.8 Flash"
+}
+```
+
+#### Code Examples
+
+##### A. cURL
+```bash
+curl -X POST "http://127.0.0.1:8000/api/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Is it safe to go cycling in Chicago right now?",
+    "thread_id": "my-session-001",
+    "model": "Gemini 3.8 Flash"
+  }'
+```
+
+##### B. JavaScript / TypeScript (`fetch`)
+```javascript
+const res = await fetch('http://127.0.0.1:8000/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    message: 'Is it safe to go cycling in Chicago right now?',
+    thread_id: 'my-session-001',
+    model: 'Gemini 3.8 Flash'
+  })
+});
+const data = await res.json();
+console.log(data.response, data.verdict, data.sop_citations);
+```
+
+##### C. Python (`requests`)
+```python
+import requests
+
+payload = {
+    "message": "Is it safe to go cycling in Chicago right now?",
+    "thread_id": "my-session-001",
+    "model": "Gemini 3.8 Flash"
+}
+res = requests.post("http://127.0.0.1:8000/api/chat", json=payload)
+print(res.json()["response"])
+```
+
+### Auxiliary Endpoints
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/models` | `GET` | Returns list of available LLM models dynamically filtered by set API keys. |
+| `/api/chat/{thread_id}` | `GET` | Retrieves full conversation history for a unique shared chat session. |
+| `/api/chat/sync` | `POST` | Syncs full conversation state from client to backend for permanent sharing. |
+| `/api/health` | `GET` | System health check, loaded SOP count, required weather variables, and active models. |
+| `/api/weather?city={city}` | `GET` | Direct query for live Open-Meteo metrics for any city or latitude/longitude. |
+| `/api/sops` | `GET` | Lists all currently active Standard Operating Procedures. |
+| `/api/sops/reload` | `POST` | Hot-reloads all SOP YAML files from disk without rebooting the server. |
+
+---
+
+## 8. Setup & Execution Instructions
 
 ### Prerequisites
 - Python 3.11+ (Python 3.12 or 3.14 tested)
@@ -241,7 +365,7 @@ The built assets are placed in `frontend/dist` and automatically served by FastA
 
 ---
 
-## 7. Automated Evaluation Suite (`evals/run_evals.py`)
+## 9. Automated Evaluation Suite (`evals/run_evals.py`)
 
 Run the comprehensive test suite covering all 8 evaluation criteria:
 
@@ -270,7 +394,7 @@ Detailed logs are recorded in [`evals/results.md`](file:///D:/IIIT%20B/MB/evals/
 
 ---
 
-## 8. Deployment: Oracle Cloud (OCI) + Caddy
+## 10. Deployment: Oracle Cloud (OCI) + Caddy
 
 Production deployment configuration files are included in `deployment/`:
 - `deployment/Caddyfile`: Reverse proxies `/api/*` to Uvicorn, serves `frontend/dist` with automatic Let's Encrypt HTTPS.
@@ -284,8 +408,47 @@ bash deployment/deploy.sh
 
 ---
 
-## 9. Repository Knowledge Base & Knowledge Graph
+## 11. Repository Knowledge Base & Knowledge Graph
 
 - **Living Knowledge Base**: [`PROGRESS.md`](file:///D:/IIIT%20B/MB/PROGRESS.md) tracks the implementation status, architectural decisions, and component map.
 - **Interactive Knowledge Graph**: Located in [`graphify-out/graph.html`](file:///D:/IIIT%20B/MB/graphify-out/graph.html). Open in any web browser to explore all 308 nodes, 438 edges, and 32 detected architectural communities across the codebase.
 - **Graph Audit Report**: [`graphify-out/GRAPH_REPORT.md`](file:///D:/IIIT%20B/MB/graphify-out/GRAPH_REPORT.md) provides an analysis of core abstractions ("God Nodes") and unexpected system linkages.
+- **Architecture Decision Record (ADR)**: Comprehensive architectural justifications documented in [`docs/DECISIONS.md`](file:///D:/IIIT%20B/MB/docs/DECISIONS.md).
+- **Validation Audit Report**: Detailed test execution logs and raw assertion results in [`evals/VALIDATION_TESTING_REPORT.md`](file:///D:/IIIT%20B/MB/evals/VALIDATION_TESTING_REPORT.md).
+
+---
+
+## 12. Known Gaps & Deliberate Scope Limitations
+
+In the interest of full technical honesty and regulatory auditability, the following edge cases and policy design boundaries are documented:
+
+1. **M3 Rain Cliff Boundary**:
+   - At 10 mm observed/forecast rain and 69% probability, the system evaluates `SOP-005` (Moderate Travel Hazard). At 70% probability, it triggers universal override `SOP-001` (Severe High Alert).
+   - *Design Rationale*: This sharp transition is not an engine defect; it strictly adheres to the mathematical truth of the YAML condition definition (`precipitation_probability >= 70 AND rain >= 10.0`). The system executes the policy-as-data verbatim without introducing unauthorized heuristic smoothing.
+2. **Diurnal Solar Noon UV Index vs Static Telemetry**:
+   - The Open-Meteo `current.uv_index` field provides the estimated peak solar noon index. In ungrounded current queries outside midday hours, `SOP-008` (Children UV Alert) will still evaluate against this peak value unless the query explicitly requests an hour (e.g. *"tomorrow at 8 AM"* or *"at 2 AM"*), which engages time-sliced hourly evaluation.
+   - *Mitigation*: The response text explicitly cites the WHO 10:00–16:00 window, and time-grounded follow-ups pull exact hourly telemetry.
+3. **Non-Latin Script Scope (Devanagari)**:
+   - While colloquial transliterations (*"cycle chalana"*, *"aaj sham"*) are resolved by the intake node, raw Devanagari script queries are classified as ambiguous/non-Latin and route cleanly to `ask_location_node`. This avoids hallucinated geocoding attempts against Open-Meteo REST endpoints that expect Latin alphabet names.
+4. **Single-Location Anchoring in Multi-City Queries**:
+   - The session model anchors to one canonical geographic coordinate set at a time (`session_facts["location_name"]`). When asked comparative questions (*"Should I run in Bhopal or Indore?"*), the system evaluates the primary resolved city (Bhopal) and explicitly adds a grounding disclosure: *"Grounding notice: Live conditions were evaluated strictly for Bhopal. Indore was not checked in this turn."*
+
+---
+
+## 13. Architectural Decisions & Defended Extras
+
+The system includes key extensions that guarantee production safety and zero-hallucination compliance:
+
+1. **Post-Render Numeric Whitelist Guard (`backend/nodes/number_guard.py`)**:
+   - Every single number in the final LLM response is extracted via regex and verified against a strict whitelist: raw API payload floats/ints, standard unit conversions (°C to °F, km/h to m/s, mm to cm), SOP condition literals, and user-quoted numbers.
+   - On any numeric mismatch (hallucinated metric or corrupted decimal), the response is discarded and replaced with a deterministic templated fallback.
+2. **Fail-Closed Policy Loading & Canary Verification (`backend/sops_engine.py`)**:
+   - If a YAML file has a syntax error or a reload fails, the engine preserves the last-known-good policy set in memory, logs the exact error, and returns HTTP 422.
+   - The engine validates a core canary set (`SOP-001` override and at least one policy per category) before allowing any startup or reload.
+3. **Explicit Time Grounding & Horizon Boundaries (`backend/nodes/matcher.py`)**:
+   - Relative temporal expressions (*"this weekend"*, *"Saturday"*, *"tonight"*, *"tomorrow morning"*, *"2am"*) are resolved to explicit datetime offsets.
+   - Past elapsed queries return `OUT_OF_SCOPE` (*"Cannot evaluate past weather"*), and queries beyond the 14-day forecast window return `OUT_OF_SCOPE` with the horizon limit stated.
+4. **Real Replay Provenance (`fixtures/recorded_severe_storm_cyclone_remal.json`)**:
+   - Severe weather testing does not rely on hand-typed mocks; it includes real historical archive data from the Open-Meteo Historical Weather API for Cyclone Remal (May 26–27, 2024, Kolkata).
+5. **Comprehensive 59-Assertion Validation Suite (`evals/run_validation_rigorous.py`)**:
+   - 59 rigorous assertions covering activity matching, session persistence, location switching, time-of-day grounding, adversarial jailbreaks, prompt disclosure refusals, and live 11th SOP injection — verified at 100% pass rate.

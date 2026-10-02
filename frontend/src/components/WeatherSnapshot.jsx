@@ -17,59 +17,75 @@ export default function WeatherSnapshot({ weather, sessionFacts }) {
   const locationName = sessionFacts?.location_name || 'Observed Location';
 
   return (
-    <div className="my-2 p-3 bg-slate-900/60 border border-slate-700/60 rounded-xl text-slate-200 text-xs shadow-inner">
+    <div className="my-2 bg-[#faf9fe] hover:bg-[#f7f5fd] border border-[#ede9f5] rounded-2xl p-3 text-gray-800 text-xs shadow-xs transition-all">
       <div
         className="flex items-center justify-between cursor-pointer select-none"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2 font-medium text-slate-300">
-          <Compass className="w-4 h-4 text-cyan-400" />
-          <span>Live Open-Meteo Weather Snapshot: <strong>{locationName}</strong></span>
+        <div className="flex items-center gap-2 font-medium text-gray-700">
+          <div className="w-6 h-6 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+            <Compass className="w-3.5 h-3.5" />
+          </div>
+          <span>
+            Live Open-Meteo Grounding: <strong className="text-gray-900 font-semibold">{locationName}</strong>
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-cyan-300">{temp !== undefined ? `${temp}°C` : ''}</span>
-          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        <div className="flex items-center gap-2.5">
+          <span className="font-semibold text-purple-700 text-sm">
+            {temp !== undefined ? `${temp}°C` : ''}
+          </span>
+          <div className="w-5 h-5 rounded-md hover:bg-purple-100/60 flex items-center justify-center text-gray-400">
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </div>
         </div>
       </div>
 
       {expanded && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-800">
-          <div className="flex items-center gap-2 p-2 bg-slate-800/40 rounded-lg">
-            <Thermometer className="w-4 h-4 text-amber-400" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-purple-100/80 animate-fadeIn">
+          <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-gray-100 shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+              <Thermometer className="w-4 h-4" />
+            </div>
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider">Temp / Feels</div>
-              <div className="font-semibold text-slate-100">{temp}°C / {apparentTemp ?? temp}°C</div>
+              <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Temp / Feels</div>
+              <div className="font-semibold text-gray-800">{temp}°C / {apparentTemp ?? temp}°C</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2 bg-slate-800/40 rounded-lg">
-            <Wind className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-gray-100 shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-sky-50 text-sky-600">
+              <Wind className="w-4 h-4" />
+            </div>
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider">Wind / Gusts</div>
-              <div className="font-semibold text-slate-100">{wind} km/h {gusts ? `(${gusts}g)` : ''}</div>
+              <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Wind / Gusts</div>
+              <div className="font-semibold text-gray-800">{wind} km/h {gusts ? `(${gusts}g)` : ''}</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2 bg-slate-800/40 rounded-lg">
-            <CloudRain className="w-4 h-4 text-blue-400" />
+          <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-gray-100 shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+              <CloudRain className="w-4 h-4" />
+            </div>
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider">Precip / Prob</div>
-              <div className="font-semibold text-slate-100">{precip} mm ({precipProb ?? 0}%)</div>
+              <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Precip / Prob</div>
+              <div className="font-semibold text-gray-800">{precip} mm ({precipProb ?? 0}%)</div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-2 bg-slate-800/40 rounded-lg">
-            <Sun className="w-4 h-4 text-orange-400" />
+          <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-gray-100 shadow-2xs">
+            <div className="p-1.5 rounded-lg bg-orange-50 text-orange-600">
+              <Sun className="w-4 h-4" />
+            </div>
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider">UV Index</div>
-              <div className="font-semibold text-slate-100">{uv ?? 0.0}</div>
+              <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">UV Index</div>
+              <div className="font-semibold text-gray-800">{uv ?? 0.0}</div>
             </div>
           </div>
 
           {curr.time && (
-            <div className="col-span-2 sm:col-span-4 text-[10px] text-slate-500 flex items-center gap-1 mt-1">
-              <Clock className="w-3 h-3" />
-              <span>Observation Timestamp: {curr.time} (Timezone: {weather.timezone || 'auto'})</span>
+            <div className="col-span-2 sm:col-span-4 text-[10px] text-gray-400 flex items-center gap-1.5 mt-1 pl-1">
+              <Clock className="w-3 h-3 text-gray-400" />
+              <span>Observation Time: {curr.time} (TZ: {weather.timezone || 'auto'})</span>
             </div>
           )}
         </div>

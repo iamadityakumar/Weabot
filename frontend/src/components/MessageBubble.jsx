@@ -1,82 +1,146 @@
-import React from 'react';
+import React, { useState } from 'react';
 import SOPBadge from './SOPBadge';
-import WeatherSnapshot from './WeatherSnapshot';
-import { User, ShieldAlert, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
+import VerdictWeatherCard from './VerdictWeatherCard';
+import { 
+  Sparkles, 
+  Copy, 
+  Check, 
+  ThumbsUp, 
+  ThumbsDown, 
+  AlertTriangle, 
+  ShieldCheck
+} from 'lucide-react';
 
-export default function MessageBubble({ message }) {
+function renderFormattedText(text) {
+  if (!text) return null;
+  const paragraphs = text.split('\n\n');
+  return paragraphs.map((para, pIdx) => {
+    const lines = para.split('\n');
+    return (
+      <div key={pIdx} className={pIdx > 0 ? 'mt-1.5' : ''}>
+        {lines.map((line, lIdx) => {
+          const parts = line.split(/(\*\*.*?\*\*)/g);
+          const renderedLine = parts.map((part, partIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return (
+                <strong key={partIdx} className="font-semibold text-gray-900">
+                  {part.slice(2, -2)}
+                </strong>
+              );
+            }
+            return part;
+          });
+
+          return (
+            <div key={lIdx} className={line.startsWith('•') || line.startsWith('-') ? 'pl-2 my-0.5' : ''}>
+              {renderedLine}
+            </div>
+          );
+        })}
+      </div>
+    );
+  });
+}
+
+export default function MessageBubble({ message, userName = 'Aditya' }) {
   const isUser = message.sender === 'user';
   const citations = message.sopCitations || [];
-  const isNoMatch = message.text && message.text.includes('do not have specific policies');
-  const isError = message.text && message.text.includes('Weather Service Error');
+  const isError = message.text && message.text.includes('Service Error');
+  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(message.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4 animate-fadeIn">
-        <div className="flex gap-2 max-w-[85%] sm:max-w-[75%] items-end flex-row-reverse">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 shadow-md">
-            <User className="w-4 h-4 text-white" />
-          </div>
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-md text-sm leading-relaxed whitespace-pre-wrap">
-            {message.text}
-          </div>
+      <div className="flex justify-end mb-3.5 animate-fadeIn">
+        <div className="bg-[#f3f0f9] text-gray-900 border border-[#e8e4f3] px-3.5 py-2.5 rounded-2xl rounded-tr-xs shadow-2xs text-[13.5px] leading-relaxed whitespace-pre-wrap max-w-[88%] sm:max-w-[75%]">
+          {message.text}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex justify-start mb-6 animate-fadeIn">
-      <div className="flex gap-3 max-w-[95%] sm:max-w-[85%] items-start">
-        <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md ${
-            isError
-              ? 'bg-rose-600 text-white'
-              : isNoMatch
-              ? 'bg-amber-600 text-white'
-              : 'bg-emerald-600 text-white'
-          }`}
-        >
-          {isError ? (
-            <AlertTriangle className="w-5 h-5" />
-          ) : isNoMatch ? (
-            <Info className="w-5 h-5" />
-          ) : (
-            <ShieldAlert className="w-5 h-5" />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2 w-full">
-          {/* Status Header & Badges */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold tracking-wide text-slate-400">
-              {isError ? 'Service Notice' : isNoMatch ? 'Honest Policy Fallback' : 'Safety Advisor'}
-            </span>
+    <div className="flex justify-start mb-3.5 animate-fadeIn">
+      <div className="flex flex-col gap-1.5 w-full min-w-0">
+        {/* Active SOP Badges (if any policy triggered) */}
+        {citations.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mb-0.5">
+            <span className="text-[10px] text-gray-400 font-medium">Applied SOPs:</span>
             {citations.map((c) => (
               <SOPBadge key={c} sopId={c} />
             ))}
           </div>
+        )}
 
-          {/* Main Bubble Content */}
-          <div
-            className={`px-5 py-4 rounded-2xl rounded-tl-none shadow-lg text-sm leading-relaxed border whitespace-pre-wrap ${
-              isError
-                ? 'bg-rose-950/40 border-rose-800/60 text-rose-100'
-                : isNoMatch
-                ? 'bg-slate-900/80 border-amber-600/40 text-slate-200'
-                : 'bg-slate-900/90 border-slate-700/70 text-slate-100'
-            }`}
-          >
-            {message.text}
-          </div>
+        {/* 1. Highlighted Verdict & Weather Master Card (Ultra-Compact, Dynamic) */}
+        {message.weatherData && (
+          <VerdictWeatherCard
+            verdict={message.verdict}
+            weather={message.weatherData}
+            sessionFacts={message.sessionFacts}
+            sopCitations={citations}
+          />
+        )}
 
-          {/* Weather Snapshot Widget */}
-          {message.weatherData && (
-            <WeatherSnapshot
-              weather={message.weatherData}
-              sessionFacts={message.sessionFacts}
-            />
-          )}
+        {/* 2. Main Guidance / Advice Bubble Content */}
+        <div
+          className={`p-3 sm:p-3.5 rounded-2xl rounded-tl-xs shadow-2xs text-[13.5px] leading-relaxed border transition-all ${
+            isError
+              ? 'bg-rose-50/70 border-rose-200 text-rose-900'
+              : 'bg-white border-[#eeecf5] text-gray-800'
+          }`}
+        >
+          {renderFormattedText(message.text)}
         </div>
+
+          {/* Action Row: Copy & Feedback */}
+          <div className="flex items-center gap-2 pl-0.5 pt-0.5 text-gray-400 text-[11px]">
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+              title="Copy message text"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 text-emerald-600" />
+                  <span className="text-[10px] text-emerald-600">Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span className="text-[10px]">Copy</span>
+                </>
+              )}
+            </button>
+
+            <span className="text-gray-200">|</span>
+
+            <button
+              onClick={() => setFeedback(feedback === 'up' ? null : 'up')}
+              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                feedback === 'up' ? 'text-purple-600 bg-purple-50' : 'hover:text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Helpful guidance"
+            >
+              <ThumbsUp className="w-3 h-3" />
+            </button>
+
+            <button
+              onClick={() => setFeedback(feedback === 'down' ? null : 'down')}
+              className={`p-1 rounded-md transition-colors cursor-pointer ${
+                feedback === 'down' ? 'text-rose-600 bg-rose-50' : 'hover:text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Unhelpful"
+            >
+              <ThumbsDown className="w-3 h-3" />
+            </button>
+          </div>
       </div>
     </div>
   );

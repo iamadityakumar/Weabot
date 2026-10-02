@@ -14,7 +14,13 @@ class AgentState(TypedDict, total=False):
     session_facts: SessionFacts
     extracted_intent: Optional[Dict[str, Any]]  # {activity: str, location: Optional[str], time_window: Optional[str]}
     weather_data: Optional[Dict[str, Any]]
+    effective_weather: Optional[Dict[str, Any]]
+    unverified_sops: Optional[List[Dict[str, Any]]]
     matched_sops: List[Dict[str, Any]]
     final_response: Optional[str]
     sop_citations: List[str]
     error_message: Optional[str]
+    error_type: Optional[str]
+    unknown_location_name: Optional[str]
+    requested_model: Optional[str]
+    verdict: Optional[Dict[str, Any]]

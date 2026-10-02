@@ -104,15 +104,31 @@ class WeatherClient:
                 "wind_speed_10m",
                 "wind_gusts_10m",
                 "uv_index",
-                "relative_humidity_2m"
+                "relative_humidity_2m",
+                "is_day"
             ]
 
         # Comma-delimited list of fields for current parameter
         current_param = ",".join(fields)
+        hourly_fields = [
+            "temperature_2m",
+            "apparent_temperature",
+            "precipitation",
+            "precipitation_probability",
+            "rain",
+            "weather_code",
+            "wind_speed_10m",
+            "wind_gusts_10m",
+            "uv_index",
+            "relative_humidity_2m",
+            "is_day"
+        ]
         params = {
             "latitude": latitude,
             "longitude": longitude,
             "current": current_param,
+            "hourly": ",".join(hourly_fields),
+            "forecast_days": 2,
             "timezone": "auto"
         }
 
@@ -134,7 +150,8 @@ class WeatherClient:
                     "timezone": data.get("timezone", "UTC"),
                     "elevation": data.get("elevation", 0),
                     "current": data["current"],
-                    "current_units": data.get("current_units", {})
+                    "current_units": data.get("current_units", {}),
+                    "hourly": data.get("hourly", {})
                 }
 
         except httpx.RequestError as e:

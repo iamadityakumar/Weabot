@@ -29,9 +29,9 @@ export default function SessionHeader({ threadId, onResetSession, health }) {
           </div>
           <div>
             <h1 className="font-bold text-base text-slate-100 flex items-center gap-2">
-              Outdoor Activity Safety Advisor
+              Outdoor Peer Guardian
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 border border-cyan-800/60">
-                LangGraph + Live Open-Meteo
+                Helpful · Soft · Live Weather
               </span>
             </h1>
             <div className="text-xs text-slate-400 flex items-center gap-2">

@@ -11,7 +11,8 @@ from backend.nodes.location import (
 )
 from backend.nodes.weather import fetch_weather_node, check_weather_status
 from backend.nodes.matcher import match_sops_node, check_match_status
-from backend.nodes.responder import no_match_node, failure_node, compose_node
+from backend.nodes.responder import no_match_node, failure_node, compose_node, out_of_scope_node
+from backend.nodes.number_guard import validate_and_guard_numbers
 
 def build_safety_graph(checkpointer: bool = True):
     """
@@ -22,28 +23,32 @@ def build_safety_graph(checkpointer: bool = True):
 
     # Register Nodes
     builder.add_node("intake", intake_node)
+    builder.add_node("out_of_scope", out_of_scope_node)
     builder.add_node("ask_location", ask_location_node)
     builder.add_node("location_resolve", location_resolve_node)
     builder.add_node("fetch_weather", fetch_weather_node)
     builder.add_node("match_sops", match_sops_node)
     builder.add_node("compose", compose_node)
     builder.add_node("no_match", no_match_node)
+    builder.add_node("number_guard", validate_and_guard_numbers)
     builder.add_node("failure", failure_node)
 
     # Entry point
     builder.add_edge(START, "intake")
 
-    # Branch 1: Location present vs missing
+    # Branch 1: Location present vs missing vs out_of_scope
     builder.add_conditional_edges(
         "intake",
         check_location_present,
         {
+            "out_of_scope": "out_of_scope",
             "ask_location": "ask_location",
             "resolve_location": "location_resolve",
         },
     )
 
-    # Missing location terminal path
+    # Out of scope and missing location terminal paths
+    builder.add_edge("out_of_scope", END)
     builder.add_edge("ask_location", END)
 
     # Branch 2: Geocoding success vs error
@@ -79,9 +84,10 @@ def build_safety_graph(checkpointer: bool = True):
         },
     )
 
-    # Successful composition and honest no-match terminal paths
-    builder.add_edge("compose", END)
-    builder.add_edge("no_match", END)
+    # Runtime number guard validation before client emission
+    builder.add_edge("compose", "number_guard")
+    builder.add_edge("no_match", "number_guard")
+    builder.add_edge("number_guard", END)
 
     if checkpointer:
         memory = MemorySaver()

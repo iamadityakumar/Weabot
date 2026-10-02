@@ -4,20 +4,65 @@ from dotenv import load_dotenv
 
 # Load .env from root directory
 env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=env_path, override=False)
+
+def reload_env():
+    """Dynamically re-read .env to detect added/updated API keys immediately."""
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+
+# Initial load
+reload_env()
 
 class Settings:
-    # LLM Settings
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini").lower()
+    @property
+    def LLM_PROVIDER(self) -> str:
+        reload_env()
+        return os.getenv("LLM_PROVIDER", "gemini").lower()
     
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    @property
+    def GEMINI_API_KEY(self) -> str:
+        reload_env()
+        return os.getenv("GEMINI_API_KEY", "")
     
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    @property
+    def GEMINI_MODEL(self) -> str:
+        reload_env()
+        return os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
     
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
+    @property
+    def GROQ_API_KEY(self) -> str:
+        reload_env()
+        return os.getenv("GROQ_API_KEY", "")
+    
+    @property
+    def GROQ_MODEL(self) -> str:
+        reload_env()
+        return os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+
+    @property
+    def OPENAI_API_KEY(self) -> str:
+        reload_env()
+        return os.getenv("OPENAI_API_KEY", "")
+
+    @property
+    def ANTHROPIC_API_KEY(self) -> str:
+        reload_env()
+        return os.getenv("ANTHROPIC_API_KEY", "")
+    
+    @property
+    def OLLAMA_BASE_URL(self) -> str:
+        reload_env()
+        return os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        
+    @property
+    def OLLAMA_MODEL(self) -> str:
+        reload_env()
+        return os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
+
+    @property
+    def ADMIN_API_KEY(self) -> str:
+        reload_env()
+        return os.getenv("ADMIN_API_KEY", "")
     
     # Weather APIs
     OPEN_METEO_FORECAST_URL: str = os.getenv(

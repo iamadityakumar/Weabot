@@ -13,6 +13,12 @@ applies_to:
   - road trip
   - highway
   - motor
+  - cycling
+  - cycle
+  - bike
+  - scooter
+  - two-wheeler
+
 conditions:
   - type: compound
     combinator: OR

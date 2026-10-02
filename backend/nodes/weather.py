@@ -2,13 +2,8 @@ import asyncio
 from typing import Dict, Any
 from backend.agent_state import AgentState
 from backend.nodes.location import get_weather_client
-from backend.sops_engine import SOPsEngine
+from backend.sops_engine import SOPsEngine, get_sops_engine
 from backend.weather_client import WeatherAPIError
-
-_sops_engine = SOPsEngine()
-
-def get_sops_engine() -> SOPsEngine:
-    return _sops_engine
 
 async def fetch_weather_node(state: AgentState) -> Dict[str, Any]:
     """
@@ -23,8 +18,19 @@ async def fetch_weather_node(state: AgentState) -> Dict[str, Any]:
             "error_message": "Missing geographic coordinates to query weather forecast."
         }
 
+    # If weather_data was explicitly supplied in state (e.g. recorded storm fixture / eval replay), preserve it
+    existing_weather = state.get("weather_data")
+    if existing_weather and isinstance(existing_weather, dict) and "current" in existing_weather and existing_weather.get("current"):
+        session_facts["last_weather_snapshot"] = existing_weather.get("current")
+        return {
+            "weather_data": existing_weather,
+            "session_facts": session_facts,
+            "error_message": None
+        }
+
     # Dynamic Field Aggregation: collect all fields required by active SOPs
-    required_fields = _sops_engine.get_required_weather_fields()
+    engine = get_sops_engine()
+    required_fields = engine.get_required_weather_fields()
     weather_client = get_weather_client()
 
     try:
