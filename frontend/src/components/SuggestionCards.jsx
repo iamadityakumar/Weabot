@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bike, ShieldAlert, Sparkles, Mountain } from 'lucide-react';
+import { Bike, ShieldAlert, HeartPulse, Mountain } from 'lucide-react';
 
 export default function SuggestionCards({ onSelectPrompt }) {
   const cards = [
@@ -18,11 +18,11 @@ export default function SuggestionCards({ onSelectPrompt }) {
       prompt: 'Can I take my toddler to the park at 1 PM in Los Angeles?',
     },
     {
-      id: 'drone',
-      icon: Sparkles,
-      title: 'Drone Flight Safety',
-      subtitle: 'Is it safe to fly my photography drone in the park?',
-      prompt: 'Is it safe to fly my photography drone in the park today?',
+      id: 'grandpa',
+      icon: HeartPulse,
+      title: 'Senior Exercise Safety',
+      subtitle: 'Will my grandpa be ok to go for exercise at 3pm in Mumbai?',
+      prompt: 'Will my grandpa be ok to go for exercise at 3pm in Mumbai?',
     },
     {
       id: 'hike',

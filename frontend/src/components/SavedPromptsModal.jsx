@@ -11,7 +11,7 @@ export default function SavedPromptsModal({ isOpen, onClose, onSelectPrompt }) {
         'Is it safe to go cycling in Chicago right now?',
         'Can I take my toddler to the playground at 1 PM in LA?',
         'Thinking of pedaling two wheels to the office this morning in Bhopal',
-        'Is it safe to fly my photography drone in the park?',
+        'Will my grandpa be ok to go for exercise at 3pm in Mumbai?',
         'My 75-year-old grandma wants to take a morning walk in Ottawa',
       ],
     },
