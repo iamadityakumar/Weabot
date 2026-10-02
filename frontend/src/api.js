@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_BASE = import.meta.env.VITE_API_URL !== undefined 
+  ? import.meta.env.VITE_API_URL 
+  : (import.meta.env.PROD ? '' : 'http://127.0.0.1:8000');
 
 export async function sendChatMessage(message, threadId, model) {
   const resp = await fetch(`${API_BASE}/api/chat`, {

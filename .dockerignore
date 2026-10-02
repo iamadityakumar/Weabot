@@ -1,0 +1,15 @@
+node_modules
+frontend/node_modules
+frontend/dist
+dist
+venv
+.venv
+__pycache__
+*.pyc
+.git
+.pytest_cache
+evals
+docs
+sessions
+.env
+.env.local
