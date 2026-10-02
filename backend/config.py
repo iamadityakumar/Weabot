@@ -8,7 +8,7 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 def reload_env():
     """Dynamically re-read .env to detect added/updated API keys immediately."""
     if env_path.exists():
-        load_dotenv(dotenv_path=env_path, override=True)
+        load_dotenv(dotenv_path=env_path, override=False)
 
 # Initial load
 reload_env()

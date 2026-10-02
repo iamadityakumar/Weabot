@@ -20,6 +20,7 @@ export default function Sidebar({
   activeThreadId,
   onSelectSession,
   onDeleteSession,
+  onClearAllSessions,
   userName = 'Aditya',
   onUpdateUserName,
   onOpenSettings,
@@ -164,6 +165,26 @@ export default function Sidebar({
           </div>
         ) : (
           <>
+            {/* Header with Clear All option */}
+            {onClearAllSessions && (
+              <div className="flex items-center justify-between px-2 pt-1 pb-1">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  History ({filteredSessions.length})
+                </span>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Clear all session history? This cannot be undone.")) {
+                      onClearAllSessions();
+                    }
+                  }}
+                  className="text-[10px] text-gray-400 hover:text-rose-600 transition-colors cursor-pointer font-medium"
+                  title="Clear all chat history"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
             {todaySessions.length > 0 && (
               <div>
                 <div className="text-[11px] font-semibold text-gray-400 px-2 py-1 uppercase tracking-wider">
@@ -195,7 +216,9 @@ export default function Sidebar({
                             onDeleteSession(s.id);
                           }}
                           title="Delete session"
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-rose-600 rounded transition-opacity cursor-pointer"
+                          className={`p-1 text-gray-400 hover:text-rose-600 rounded transition-opacity cursor-pointer ${
+                            isActive ? 'opacity-80 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -237,7 +260,9 @@ export default function Sidebar({
                             onDeleteSession(s.id);
                           }}
                           title="Delete session"
-                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-rose-600 rounded transition-opacity cursor-pointer"
+                          className={`p-1 text-gray-400 hover:text-rose-600 rounded transition-opacity cursor-pointer ${
+                            isActive ? 'opacity-80 hover:opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>

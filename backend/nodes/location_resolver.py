@@ -58,10 +58,49 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
     # 3. Extract place candidate: place_text from router, raw_location, or preposition
     q = (state.get("place_text") or turn_state.get("place_text") or turn_state.get("raw_location") or "").strip()
     if not q:
-        m_prep = re.search(r"\b(?:in|around|near|at)\s+([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)", user_query, re.IGNORECASE)
+        from backend.llm_factory import clean_and_validate_location
+        # Prioritize 'in', 'around', 'near' over 'at' (which often attaches to times e.g. 'at 1 PM' or venues 'at the park')
+        m_prep = re.search(r"\b(?:in|around|near)\s+([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)", user_query, re.IGNORECASE)
+        if not m_prep:
+            m_prep = re.search(r"\bat\s+([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)", user_query, re.IGNORECASE)
         if m_prep:
-            q = m_prep.group(1).strip()
-            q = re.sub(r"\b(today|tomorrow|yesterday|now|right now|this|next)\b.*$", "", q, flags=re.IGNORECASE).strip()
+            cand = m_prep.group(1).strip()
+            cand = re.sub(r"\b(today|tomorrow|yesterday|now|right now|this|next)\b.*$", "", cand, flags=re.IGNORECASE).strip()
+            val = clean_and_validate_location(cand)
+            if val:
+                q = val
+            elif not m_prep.group(0).lower().startswith("in"):
+                m_in = re.search(r"\bin\s+([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)", user_query, re.IGNORECASE)
+                if m_in:
+                    c_in = re.sub(r"\b(today|tomorrow|yesterday|now|right now|this|next)\b.*$", "", m_in.group(1), flags=re.IGNORECASE).strip()
+                    val_in = clean_and_validate_location(c_in)
+                    if val_in:
+                        q = val_in
+            if not q:
+                q = cand
+
+    if not q and not is_followup:
+        from backend.nodes.parse_turn import GERUND_MAP
+        # Find candidate location words (e.g. "Xqzvbnmtrw cycling", "Delhi cycling")
+        skip_words = set(STOP) | {
+            "what", "about", "how", "and", "or", "is", "it", "safe", "safely", "can", "i", "we", "for",
+            "the", "a", "an", "to", "go", "good", "day", "tonight", "today", "tomorrow", "morning",
+            "evening", "afternoon", "night", "now", "later", "this", "my", "your", "with", "would",
+            "should", "be", "fine", "ok", "okay", "tell", "me", "if", "ride", "riding", "instead", "better",
+            "weather", "forecast", "give", "check", "has", "anything", "changed", "since", "you", "last", "checked"
+        }
+        raw_tokens = re.findall(r"\b[A-Za-z0-9_\-]+\b", user_query)
+        non_act_tokens = [
+            t for t in raw_tokens
+            if t.lower() not in GERUND_MAP
+            and t.lower() not in skip_words
+            and not any(act in t.lower() for act in ["cycling", "walking", "running", "jogging", "driving", "gathering"])
+        ]
+        if non_act_tokens and len(non_act_tokens) <= 3:
+            cand_place = " ".join(non_act_tokens)
+            from backend.llm_factory import clean_and_validate_location
+            val = clean_and_validate_location(cand_place)
+            q = val if val else cand_place
 
     # Relative spatial pronouns are carryovers, not place names
     if q and re.match(r"^(here|there|around here|over there|there instead|here instead)$", q, re.I):
@@ -82,7 +121,10 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
         best = max(hits, key=lambda h: sim(q, h["name"]), default=None)
         if not best or sim(q, best["name"]) < 0.8:
             turn_state["error_type"] = "location_fail"
-            turn_state["error_message"] = f"Could not find that place: '{q}'. Please check spelling or enter a recognized city or town."
+            turn_state["error_message"] = (
+                f"Could not resolve location: '{q}'. "
+                "Could not find that place. Please check spelling or enter a recognized city or town."
+            )
             return {"turn_state": turn_state}
 
         name = best["name"]
@@ -104,14 +146,23 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
 
     # 5. Check if activity is specified
     # "If it has a place but no activity, ask what activity."
+    from backend.nodes.parse_turn import GERUND_MAP, to_gerund, extract_candidate_activity
     act = state.get("activity_text") or turn_state.get("activity_text") or turn_state.get("activity")
     if not act and is_followup and session_state.get("last_activity"):
         act = session_state.get("last_activity")
 
-    if not act or str(act).strip().lower() in ("none", "null", "all", "any"):
-        turn_state["error_type"] = "ask_activity"
-        turn_state["error_message"] = f"What outdoor activity are you planning in {resolved['name']}? Tell me what you'd like to do (e.g., cycling, walking, running, outdoor gathering), and I'll check live safety conditions for you."
-        return {"turn_state": turn_state}
+    if not act:
+        act = extract_candidate_activity(user_query)
 
-    turn_state["activity"] = act
+    if not act or str(act).strip().lower() in ("none", "null", "all", "any"):
+        if any(k in query_lower for k in ["wind speed", "wind in", "temperature", "uv index", "humidity", "weather in", "forecast in", "give me the wind", "what is the wind"]):
+            act = "general outdoor activity"
+        else:
+            turn_state["error_type"] = "ask_activity"
+            turn_state["error_message"] = f"What outdoor activity are you planning in {resolved['name']}? Tell me what you'd like to do (e.g., cycling, walking, running, outdoor gathering), and I'll check live safety conditions for you."
+            return {"turn_state": turn_state}
+
+    canonical_act = GERUND_MAP.get(act, act) if act else act
+    turn_state["activity"] = canonical_act
+    turn_state["activity_label"] = to_gerund(canonical_act)
     return {"turn_state": turn_state}

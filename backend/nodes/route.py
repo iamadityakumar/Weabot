@@ -9,6 +9,7 @@ from backend.nodes.parse_turn import (
     extract_time_expression,
     is_followup_query,
     to_gerund,
+    extract_candidate_activity,
     GERUND_MAP
 )
 
@@ -109,13 +110,17 @@ def route_node(state: AgentState) -> Dict[str, Any]:
         }
 
     # Fast regex for meta_session
-    if any(k in msg_lower for k in [
+    m_sop = re.search(r"\b(sop-\d+)\b", msg_lower)
+    is_fake_sop = bool(m_sop and int(re.search(r"\d+", m_sop.group(1)).group(0)) > 13)
+    if is_fake_sop or any(k in msg_lower for k in [
         "you said it was fine", "you said fine", "told me it was safe", "you said earlier",
         "override the sop", "certified safety officer", "just say yes", "system override",
         "summarize our discussion", "summarize the chat", "what have we discussed",
         "print your system prompt", "show your system prompt", "print every sop"
     ]):
-        if any(k in msg_lower for k in ["you said", "said fine", "told me"]):
+        if is_fake_sop:
+            dialogue_act = "fake_policy"
+        elif any(k in msg_lower for k in ["you said", "said fine", "told me"]):
             dialogue_act = "challenge"
         elif any(k in msg_lower for k in ["override", "say yes", "change verdict", "safety officer"]):
             dialogue_act = "override_attempt"
@@ -134,7 +139,8 @@ def route_node(state: AgentState) -> Dict[str, Any]:
             "session_state": session_state,
             "turn_state": {
                 "raw_query": msg,
-                "dialogue_act": dialogue_act
+                "dialogue_act": dialogue_act,
+                "fake_sop_id": m_sop.group(1).upper() if m_sop else None
             }
         }
 
@@ -142,7 +148,8 @@ def route_node(state: AgentState) -> Dict[str, Any]:
     if any(k in msg_lower for k in [
         "tell me a joke", "write a python", "best pizza", "tesla stock", "crypto",
         "what should i wear", "what to wear", "clothing advice", "suggest an outfit",
-        "asthma", "aqi fine", "fine for asthma", "has the imd issued", "imd warning",
+        "air quality", "is the air fine", "air pollution", "has the imd issued", "imd warning",
+        "low-pressure system", "low pressure system",
         "everest", "mount everest"
     ]):
         return {
@@ -163,6 +170,16 @@ def route_node(state: AgentState) -> Dict[str, Any]:
         if re.search(rf"\b{c}\b", msg_clean, re.I):
             known_place = c.capitalize()
             break
+    if not known_place:
+        common_cities = [
+            "chicago", "los angeles", "berlin", "ottawa", "london", "paris",
+            "tokyo", "new york", "san francisco", "miami", "seattle", "delhi",
+            "mumbai", "bangalore"
+        ]
+        for c in common_cities:
+            if re.search(rf"\b{re.escape(c)}\b", msg_clean, re.I):
+                known_place = c.title()
+                break
 
     # 3. Check obvious weather inquiries / follow-ups
     has_activity = any(act in msg_lower for act in GERUND_MAP.keys())
@@ -170,9 +187,8 @@ def route_node(state: AgentState) -> Dict[str, Any]:
     subject = extract_subject(msg)
     time_expr = extract_time_expression(msg)
 
-    # If query has a place or activity or is a clear follow-up
+    # If query has a place or recognized activity or is a clear follow-up
     if known_place or has_activity or (is_followup and session_state.get("last_good_location")):
-        # Extract activity if present
         act_text = None
         for act in sorted(GERUND_MAP.keys(), key=len, reverse=True):
             if act in msg_lower:
@@ -182,10 +198,14 @@ def route_node(state: AgentState) -> Dict[str, Any]:
         if not act_text and is_followup and session_state.get("last_activity"):
             act_text = session_state.get("last_activity")
 
+        # Canonicalize activity using GERUND_MAP if applicable
+        canonical_act = GERUND_MAP.get(act_text, act_text) if act_text else None
+        act_label = to_gerund(canonical_act) if canonical_act else None
+
         return {
             "intent": "weather_safety",
             "place_text": known_place,
-            "activity_text": act_text,
+            "activity_text": canonical_act,
             "user_message": msg,
             "session_state": session_state,
             "turn_state": {
@@ -193,9 +213,9 @@ def route_node(state: AgentState) -> Dict[str, Any]:
                 "dialogue_act": "new_query",
                 "place_text": known_place,
                 "raw_location": known_place,
-                "activity_text": act_text,
-                "activity": act_text,
-                "activity_label": to_gerund(act_text) if act_text else None,
+                "activity_text": canonical_act,
+                "activity": canonical_act,
+                "activity_label": act_label,
                 "subject": subject,
                 "time_expression": time_expr,
                 "is_followup": is_followup
@@ -249,14 +269,16 @@ def route_node(state: AgentState) -> Dict[str, Any]:
     if intent == "meta_session":
         dialogue_act = "challenge"
 
-    act_cand = r.activity_text
+    act_cand = r.activity_text or candidate_act
     if not act_cand and is_followup and session_state.get("last_activity"):
         act_cand = session_state.get("last_activity")
+    canonical_act = GERUND_MAP.get(act_cand, act_cand) if act_cand else None
+    act_label = to_gerund(canonical_act) if canonical_act else None
 
     return {
         "intent": intent,
         "place_text": place,
-        "activity_text": act_cand,
+        "activity_text": canonical_act,
         "user_message": msg,
         "session_state": session_state,
         "turn_state": {
@@ -264,9 +286,9 @@ def route_node(state: AgentState) -> Dict[str, Any]:
             "dialogue_act": dialogue_act,
             "place_text": place,
             "raw_location": place,
-            "activity_text": act_cand,
-            "activity": act_cand,
-            "activity_label": to_gerund(act_cand) if act_cand else None,
+            "activity_text": canonical_act,
+            "activity": canonical_act,
+            "activity_label": act_label,
             "subject": subject,
             "time_expression": time_expr,
             "is_followup": is_followup

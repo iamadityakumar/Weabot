@@ -58,6 +58,10 @@ def guards_node(state: AgentState) -> Dict[str, Any]:
             allowed_numbers.add(str(int(v)))
             allowed_numbers.add(str(round(float(v), 1)))
             allowed_numbers.add(str(round(float(v), 2)))
+            allowed_numbers.add(str(abs(v)))
+            allowed_numbers.add(str(int(abs(v))))
+            allowed_numbers.add(str(round(abs(float(v)), 1)))
+            allowed_numbers.add(str(round(abs(float(v)), 2)))
 
     # Code conversions (wind m/s, wind mph, gusts)
     wind = curr.get("wind_speed_10m")
@@ -119,8 +123,7 @@ def guards_node(state: AgentState) -> Dict[str, Any]:
         allowed_numbers.add(str(day))
         allowed_numbers.add(f"{day:02d}")
     allowed_numbers.update([
-        "0", "00", "2024", "2025", "2026", "2027", "2028", "2029", "2030",
-        "40", "48", "60", "65", "68", "69", "70", "75", "80", "85", "90", "95", "100"
+        "0", "00", "2024", "2025", "2026", "2027", "2028", "2029", "2030", "100"
     ])
 
     # Extract all numbers from final_response

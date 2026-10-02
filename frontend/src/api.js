@@ -88,6 +88,24 @@ export async function syncChatSession(threadId, title, model, messages) {
   return resp.json();
 }
 
+export async function deleteChatSession(threadId) {
+  const resp = await fetch(`${API_BASE}/api/chat/${encodeURIComponent(threadId)}`, {
+    method: 'DELETE',
+  });
+  if (!resp.ok && resp.status !== 404) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Server returned HTTP ${resp.status}`);
+  }
+  return resp.json().catch(() => ({ status: 'success' }));
+}
 
-
-
+export async function clearAllSessions() {
+  const resp = await fetch(`${API_BASE}/api/sessions`, {
+    method: 'DELETE',
+  });
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Server returned HTTP ${resp.status}`);
+  }
+  return resp.json();
+}

@@ -153,7 +153,7 @@ async def test_requirements():
     # 4B: Unresolvable Location Branch (intake -> location_resolve -> check_geocode_status -> failure -> END)
     print("\n[Branch 4B] Unresolvable Location: 'Is it safe to cycle in Xyzqwertynonexistentcity12345?'")
     res_bad_loc = await graph.ainvoke({"messages": [HumanMessage(content="Is it safe to cycle in Xyzqwertynonexistentcity12345?")]})
-    is_failure = "weather service error" in res_bad_loc.get("final_response", "").lower() or "could not resolve" in res_bad_loc.get("final_response", "").lower()
+    is_failure = "weather service error" in res_bad_loc.get("final_response", "").lower() or "could not resolve" in res_bad_loc.get("final_response", "").lower() or "could not find that place" in res_bad_loc.get("final_response", "").lower()
     print(f"Routed to failure on bad geocoding: {is_failure} | Response: {res_bad_loc.get('final_response')[:120]}...")
     report["branching"]["bad_geocoding"] = {
         "passed": is_failure,

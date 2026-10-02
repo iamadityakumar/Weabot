@@ -21,7 +21,7 @@ def scope_node(state: AgentState) -> Dict[str, Any]:
             "Please check local forecast temperatures and dress comfortably for conditions."
         )
         title = "Out of Scope · Clothing Advice"
-    elif any(k in query for k in ["asthma", "air quality", "aqi fine for a jog", "fine for asthma"]):
+    elif any(k in query for k in ["air quality", "is the air fine", "air pollution", "aqi"]):
         msg = (
             "Weabot evaluates physical weather telemetry (temperature, wind, rain, UV) from numerical prediction models "
             "and does not monitor real-time air quality index (AQI) or provide medical advice. "

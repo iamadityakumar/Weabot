@@ -11,7 +11,9 @@ import {
   getHealth, 
   getAvailableModels, 
   getChatSession, 
-  syncChatSession 
+  syncChatSession,
+  deleteChatSession,
+  clearAllSessions
 } from './api';
 
 function getInitialThreadId() {
@@ -203,14 +205,35 @@ export default function App() {
     window.history.replaceState(null, '', url.toString());
   };
 
-  const handleDeleteSession = (idToDelete) => {
+  const handleDeleteSession = async (idToDelete) => {
+    // 1. Optimistically update local session state and localStorage
     setSessions((prev) => {
       const updated = prev.filter((s) => s.id !== idToDelete);
       localStorage.setItem('cortex_sessions', JSON.stringify(updated));
       return updated;
     });
+
+    // 2. If deleting active session, reset view to a clean new chat
     if (threadId === idToDelete) {
       handleResetSession();
+    }
+
+    // 3. Delete session on backend server storage and memory
+    try {
+      await deleteChatSession(idToDelete);
+    } catch (err) {
+      console.warn('Could not delete session from server:', err);
+    }
+  };
+
+  const handleClearAllSessions = async () => {
+    setSessions([]);
+    localStorage.removeItem('cortex_sessions');
+    handleResetSession();
+    try {
+      await clearAllSessions();
+    } catch (err) {
+      console.warn('Could not clear sessions on server:', err);
     }
   };
 
@@ -276,6 +299,7 @@ export default function App() {
           activeThreadId={threadId}
           onSelectSession={handleSelectSession}
           onDeleteSession={handleDeleteSession}
+          onClearAllSessions={handleClearAllSessions}
           userName={userName}
           onUpdateUserName={handleUpdateUserName}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -304,6 +328,7 @@ export default function App() {
                 setIsMobileSidebarOpen(false);
               }}
               onDeleteSession={handleDeleteSession}
+              onClearAllSessions={handleClearAllSessions}
               userName={userName}
               onUpdateUserName={handleUpdateUserName}
               onOpenSettings={() => {

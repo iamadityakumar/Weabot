@@ -46,22 +46,34 @@ def select_sops_node(state: AgentState) -> Dict[str, Any]:
 
     if any(k in act_lower or k in q_lower for k in ["scooter", "motorcycle", "motorbike", "moped", "two-wheeler"]):
         candidate_ids.update(["SOP-004"])  # Wind handling, excludes athletic workout SOP-003
-    elif any(k in act_lower or k in q_lower for k in ["cycl", "bike", "bicycle"]):
+    elif any(k in act_lower or k in q_lower for k in ["cycl", "bike", "bicycle", "pedal", "two wheels", "two-wheel", "two wheeler"]):
         candidate_ids.update(["SOP-004", "SOP-003"])
     if any(k in act_lower or k in q_lower for k in ["run", "jog", "exercise", "workout"]):
         candidate_ids.update(["SOP-002", "SOP-003"])
-    if any(k in act_lower or k in q_lower for k in ["picnic", "park", "bbq", "barbecue", "gathering"]):
+    if not any(u in q_lower or u in act_lower for u in ["drone", "uav", "camera"]) and any(k in act_lower or k in q_lower for k in ["picnic", "park", "bbq", "barbecue", "gathering"]):
         candidate_ids.update(["SOP-011", "SOP-012"])
     if any(k in act_lower or k in q_lower for k in ["drive", "commute", "car", "travel", "road"]):
         candidate_ids.update(["SOP-005", "SOP-006"])
     if any(k in q_lower for k in ["thunder", "lightning", "storm"]):
         candidate_ids.update(["SOP-010"])
+    # Dynamic candidate selection based on SOP applies_to
+    for sop_id, sop in registry.items():
+        applies = [str(x).lower().strip() for x in sop.get("applies_to", [])]
+        if any(target in act_lower or act_lower in target for target in applies if target not in ("all", "any")):
+            candidate_ids.add(sop_id)
+        if any(target in q_lower for target in applies if len(target) >= 4 and target not in ("all", "any")):
+            candidate_ids.add(sop_id)
 
     # LLM Candidate Selection step (temperature 0)
     llm_candidates = llm_factory.select_sop_candidates(query, activity, subject, catalog, model_name=state.get("requested_model"))
     for cid in llm_candidates:
         if cid in registry:
             candidate_ids.add(cid)
+
+    # Ensure drone/UAV queries discard picnic/park leisure gathering SOPs
+    if any(u in q_lower or u in act_lower for u in ["drone", "uav"]):
+        candidate_ids.discard("SOP-011")
+        candidate_ids.discard("SOP-012")
 
     # Universal overrides (SOP-001 severe rain, SOP-006 gale/fog, SOP-002 extreme heat)
     # are ALWAYS candidates so evaluate_sops can test override triggers

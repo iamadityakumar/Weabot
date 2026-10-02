@@ -333,15 +333,122 @@ async def get_chat_session(thread_id: str):
     Retrieve full conversation history for a unique chat session.
     Enables shareable chat links across users and browsers.
     """
+    clean_id = thread_id.strip()
+    if not clean_id or ".." in clean_id or "/" in clean_id or "\\" in clean_id:
+        raise HTTPException(status_code=400, detail="Invalid thread ID format.")
+
     sessions_dir = settings.BASE_DIR / "sessions"
-    session_file = sessions_dir / f"{thread_id}.json"
+    session_file = sessions_dir / f"{clean_id}.json"
     if not session_file.exists():
-        raise HTTPException(status_code=404, detail=f"Chat session '{thread_id}' not found.")
+        raise HTTPException(status_code=404, detail=f"Chat session '{clean_id}' not found.")
     try:
         with open(session_file, "r", encoding="utf-8") as sf:
             return json.load(sf)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read session: {str(e)}")
+
+@app.delete("/api/chat/{thread_id}")
+async def delete_chat_session(thread_id: str):
+    """
+    Delete conversation history from disk and clear in-memory LangGraph state for a chat session.
+    """
+    clean_id = thread_id.strip()
+    if not clean_id or ".." in clean_id or "/" in clean_id or "\\" in clean_id:
+        raise HTTPException(status_code=400, detail="Invalid thread ID format.")
+
+    sessions_dir = settings.BASE_DIR / "sessions"
+    session_file = sessions_dir / f"{clean_id}.json"
+
+    file_deleted = False
+    if session_file.exists():
+        try:
+            session_file.unlink()
+            file_deleted = True
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete session file: {str(e)}")
+
+    # Clean up LangGraph checkpointer memory if available
+    memory_cleared = False
+    try:
+        if hasattr(safety_advisor_graph, "checkpointer") and safety_advisor_graph.checkpointer:
+            checkpointer = safety_advisor_graph.checkpointer
+            if hasattr(checkpointer, "adelete_thread"):
+                await checkpointer.adelete_thread(clean_id)
+                memory_cleared = True
+            elif hasattr(checkpointer, "delete_thread"):
+                checkpointer.delete_thread(clean_id)
+                memory_cleared = True
+    except Exception as e:
+        print(f"[Main] Warning: Could not clear checkpointer memory for {clean_id}: {e}")
+
+    return {
+        "status": "success",
+        "thread_id": clean_id,
+        "file_deleted": file_deleted,
+        "memory_cleared": memory_cleared,
+        "message": f"Chat session '{clean_id}' successfully deleted."
+    }
+
+@app.get("/api/sessions")
+async def list_chat_sessions():
+    """
+    List all chat sessions saved on the backend with metadata.
+    """
+    sessions_dir = settings.BASE_DIR / "sessions"
+    if not sessions_dir.exists():
+        return {"count": 0, "sessions": []}
+
+    session_list = []
+    for file in sessions_dir.glob("*.json"):
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                session_list.append({
+                    "id": data.get("thread_id") or file.stem,
+                    "title": data.get("title") or "Outdoor Advisory",
+                    "model": data.get("model"),
+                    "updated_at": data.get("updated_at"),
+                    "message_count": len(data.get("messages", []))
+                })
+        except Exception:
+            continue
+
+    session_list.sort(key=lambda s: s.get("updated_at") or "", reverse=True)
+    return {
+        "count": len(session_list),
+        "sessions": session_list
+    }
+
+@app.delete("/api/sessions")
+async def clear_all_sessions():
+    """
+    Delete all stored session files from disk and wipe checkpointer memory.
+    """
+    sessions_dir = settings.BASE_DIR / "sessions"
+    deleted_count = 0
+    if sessions_dir.exists():
+        for file in sessions_dir.glob("*.json"):
+            try:
+                file.unlink()
+                deleted_count += 1
+            except Exception as e:
+                print(f"[Main] Warning: Could not delete {file}: {e}")
+
+    try:
+        if hasattr(safety_advisor_graph, "checkpointer") and safety_advisor_graph.checkpointer:
+            checkpointer = safety_advisor_graph.checkpointer
+            if hasattr(checkpointer, "storage") and hasattr(checkpointer.storage, "clear"):
+                checkpointer.storage.clear()
+            if hasattr(checkpointer, "writes") and hasattr(checkpointer.writes, "clear"):
+                checkpointer.writes.clear()
+    except Exception as e:
+        print(f"[Main] Warning: Could not clear checkpointer memory: {e}")
+
+    return {
+        "status": "success",
+        "deleted_count": deleted_count,
+        "message": f"Successfully cleared {deleted_count} session(s)."
+    }
 
 class SessionSyncPayload(BaseModel):
     thread_id: str
@@ -354,12 +461,16 @@ async def sync_chat_session(payload: SessionSyncPayload):
     """
     Sync complete session state from frontend for persistent sharing.
     """
+    clean_id = payload.thread_id.strip()
+    if not clean_id or ".." in clean_id or "/" in clean_id or "\\" in clean_id:
+        raise HTTPException(status_code=400, detail="Invalid thread ID format.")
+
     sessions_dir = settings.BASE_DIR / "sessions"
     sessions_dir.mkdir(parents=True, exist_ok=True)
-    session_file = sessions_dir / f"{payload.thread_id}.json"
+    session_file = sessions_dir / f"{clean_id}.json"
     now_iso = datetime.now(timezone.utc).isoformat()
     data = {
-        "thread_id": payload.thread_id,
+        "thread_id": clean_id,
         "title": payload.title or "Outdoor Safety Advisory",
         "model": payload.model or settings.GEMINI_MODEL,
         "updated_at": now_iso,
@@ -368,7 +479,7 @@ async def sync_chat_session(payload: SessionSyncPayload):
     try:
         with open(session_file, "w", encoding="utf-8") as sf:
             json.dump(data, sf, indent=2, ensure_ascii=False)
-        return {"status": "success", "thread_id": payload.thread_id}
+        return {"status": "success", "thread_id": clean_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync session: {str(e)}")
 

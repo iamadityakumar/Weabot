@@ -1,8 +1,9 @@
 .
 
-
-
+#local knowledge
+sessions/
 PROGRESS.md
+
 # Environment and secrets
 .env
 .env.local

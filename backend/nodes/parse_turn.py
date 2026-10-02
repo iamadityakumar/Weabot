@@ -13,6 +13,14 @@ GERUND_MAP = {
     "bicycle": "cycling",
     "two-wheeler": "cycling",
     "two wheeler": "cycling",
+    "two wheels": "cycling",
+    "two-wheel": "cycling",
+    "pedal": "cycling",
+    "pedaling": "cycling",
+    "ride": "cycling",
+    "riding": "cycling",
+    "skydive": "skydiving",
+    "skydiving": "skydiving",
     "scooter": "scootering",
     "motorbike": "riding a motorbike",
     "motorcycle": "riding a motorcycle",
@@ -59,6 +67,32 @@ def to_gerund(activity_raw: Optional[str]) -> str:
         return norm
     return f"{norm} activity"
 
+def extract_candidate_activity(query: str) -> Optional[str]:
+    """
+    Extract activity candidate from natural language query.
+    First checks GERUND_MAP keys (longest first), then checks common syntactic safety patterns.
+    """
+    q_lower = query.lower()
+    # 1. Exact match in GERUND_MAP
+    for act in sorted(GERUND_MAP.keys(), key=len, reverse=True):
+        if re.search(rf"\b{re.escape(act)}\b", q_lower):
+            return GERUND_MAP[act]
+
+    # 2. Syntactic patterns: e.g. "Is skydiving safe in Berlin today?"
+    patterns = [
+        r"\b(?:is|are)\s+([a-zA-Z\s\-]+?)\s+(?:safe|advisable|ok|okay|fine|good|recommended)\b",
+        r"\b(?:safe\s+to|safe\s+for|safe\s+doing)\s+([a-zA-Z\s\-]+?)(?:\s+(?:in|at|near|around|today|tomorrow|tonight|this|later)|\?|$)",
+        r"\b(?:can\s+i|can\s+we|should\s+i|should\s+we)\s+(?:go\s+)?([a-zA-Z\s\-]+?)(?:\s+(?:in|at|near|around|today|tomorrow|tonight|this|later)|\?|$)"
+    ]
+    for p in patterns:
+        m = re.search(p, query, re.I)
+        if m:
+            cand = m.group(1).strip().lower()
+            cand = re.sub(r"\b(it|there|here|now|today|tomorrow|tonight|a|an|the|my)\b", "", cand).strip()
+            if len(cand) >= 3 and cand not in ("out", "outside", "weather", "air", "conditions"):
+                return cand
+    return None
+
 FOLLOW_UP_PHRASES = [
     "what about", "how about", "and tomorrow", "and next", "is tomorrow", "is it better",
     "what's it like here", "what is it like here", "weather here", "and back to",
@@ -80,8 +114,14 @@ def is_followup_query(query: str) -> bool:
         return True
     # Ellipsis follow-up like "cycling?" or "and cycling?" or "walking?"
     words = re.findall(r"\b\w+\b", q)
-    if len(words) <= 2 and any(w in GERUND_MAP for w in words):
+    if len(words) == 1 and any(w in GERUND_MAP for w in words):
         return True
+    if len(words) == 2 and any(w in GERUND_MAP for w in words):
+        filler_words = {"and", "or", "also", "then", "just", "so", "what", "how", "about", "for", "is", "a", "the", "my"}
+        other_words = [w for w in words if w not in GERUND_MAP]
+        if other_words and all(w in filler_words for w in other_words):
+            return True
+        return False
     return False
 
 def classify_dialogue_act(query: str, session_state: SessionState) -> Tuple[str, Optional[str]]:
@@ -156,7 +196,7 @@ def classify_dialogue_act(query: str, session_state: SessionState) -> Tuple[str,
         "tesla", "stock", "shares", "crypto", "bitcoin", "invest in", "buy stock",
         "everest", "mount everest", "k2", "annapurna",
         "what should i wear", "what to wear", "clothing advice", "suggest an outfit",
-        "asthma", "air quality", "aqi fine for a jog", "fine for asthma",
+        "air quality", "is the air fine", "air pollution", "aqi",
         "has the imd issued", "imd issued a warning", "imd warning been issued", "imd alert been issued",
         "low-pressure system over mp", "low pressure system over mp"
     ]

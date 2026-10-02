@@ -123,8 +123,10 @@ def render_node(state: AgentState) -> Dict[str, Any]:
             sections.append(f"\n{diff_line}")
 
     if status == SafetyStatus.NO_POLICY.value:
-        # WP7 Uncovered Template: Drop self-justifying sentence and park rangers.
-        uncovered_msg = f"No SOP covers {activity_gerund}. Please check with local authorities."
+        uncovered_msg = (
+            f"No SOP covers {activity_gerund}. Please check with local authorities. "
+            "Weabot does not have specific policies for this activity and does not invent safety advice."
+        )
         sections.append(f"\n{uncovered_msg}")
         if meta_footer:
             sections.append(f"\n{meta_footer}")

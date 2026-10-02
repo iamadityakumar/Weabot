@@ -517,7 +517,7 @@ or
             cid = item["id"]
             title_low = item.get("title", "").lower()
             intent_low = item.get("intent", "").lower()
-            if any(w in q_low for w in ["cycl", "bike", "two-wheeler", "scooter"]) and "wind" in title_low:
+            if any(w in q_low for w in ["cycl", "bike", "two-wheeler", "scooter", "two wheels", "pedal"]) and "wind" in title_low:
                 res.append(cid)
             elif any(w in q_low for w in ["toddler", "child", "infant", "kid", "playground"]) and "uv" in title_low:
                 res.append(cid)
