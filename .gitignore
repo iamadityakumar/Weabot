@@ -1,6 +1,6 @@
 sessions/
-docs/
-evals/
+evals/__pycache__/
+evals/*.json
 PROGRESS.md
 # Environment and secrets
 .env

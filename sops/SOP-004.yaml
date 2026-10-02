@@ -1,5 +1,6 @@
 id: SOP-004
 title: High Wind Danger for Cycling and Two-Wheelers
+intent: "High sustained wind and crosswind collision hazards for cycling, bicycles, scooters, and two-wheelers."
 category: travel
 severity: high
 applies_to:

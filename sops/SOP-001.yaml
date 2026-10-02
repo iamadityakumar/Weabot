@@ -1,5 +1,6 @@
 id: SOP-001
 title: Severe Precipitation and Surface Flooding Hazard
+intent: "Severe precipitation, torrential rain, monsoons, and flash flooding affecting all outdoor activities and travel."
 category: general
 severity: high
 override: true

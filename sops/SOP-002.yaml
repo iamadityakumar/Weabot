@@ -1,5 +1,6 @@
 id: SOP-002
 title: Extreme Heat and Sunstroke Alert for Outdoor Exercise
+intent: "Extreme heat, heat exhaustion, and sunstroke risk during high-intensity outdoor exercise and running."
 category: outdoor_exercise
 severity: high
 applies_to:

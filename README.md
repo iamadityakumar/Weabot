@@ -22,61 +22,69 @@ Consider an active India Meteorological Department (IMD) advisory flagging a wel
 
 ---
 
-## 2. System Architecture & LangGraph Branching
+## 2. System Architecture & LangGraph Target Graph
 
-The system is implemented as an explicit **LangGraph** state machine ([`backend/graph.py`](file:///D:/IIIT%20B/MB/backend/graph.py)) with strict conditional edges, deterministic barriers, and checkpointed session memory.
+The system is implemented as an explicit **LangGraph** state machine ([`backend/graph.py`](file:///D:/IIIT%20B/MB/backend/graph.py)) strictly reflecting the target graph:
 
 ```mermaid
 flowchart TD
-    START([User Query]) --> intake[intake_node<br>Extract activity, location, time window]
+    START([User Query]) --> parse_turn[parse_turn<br>Dialogue Act & Intent Intake]
+    parse_turn --> route{route}
     
-    intake -->|Out of scope: stocks, Everest, prompt leak| out_of_scope[out_of_scope_node<br>Categorical refusal] --> END([END])
-    intake -->|Missing / emoji location| ask_loc[ask_location_node<br>Prompt for city] --> END
-    intake -->|Location present| loc_res[location_resolve<br>Geocoding API]
+    route -->|meta: challenge / override / fake SOP / summary / disclosure| meta_node[meta_node<br>Deterministic Decision Log Answers] --> END([END])
+    route -->|out of scope: stocks, Everest, IMD, clothing| scope_node[scope_node<br>Scope Boundary Refusal] --> END
     
-    loc_res -->|Geocoding failure| fail_loc[failure_node<br>Unable to resolve location] --> END
-    loc_res -->|Geocoding success| fetch_wx[fetch_weather<br>Open-Meteo REST API]
+    route -->|weather path| res_loc[resolve_location<br>Open-Meteo Geocoding & Coords Audit]
+    res_loc -->|location fail / ocean / Devanagari| loc_fail[location_fail<br>Honest Location Refusal] --> guards[guards<br>Post-Render Number Whitelist & Banned Words]
     
-    fetch_wx -->|API timeout / 500| fail_wx[failure_node<br>Weather service unreachable] --> END
-    fetch_wx -->|Telemetry acquired| match[match_sops<br>Evaluate Universal Overrides<br>& Activity SOPs]
+    res_loc -->|resolved| res_time[resolve_time<br>Deterministic TimeTarget 16d Horizon]
+    res_time -->|horizon > 16d / past elapsed| time_fail[time_fail<br>Horizon Refusal] --> guards
     
-    match -->|Matches found| compose[compose_node<br>Constrained LLM Synthesis]
-    match -->|Uncovered / No hazard / Past / Horizon exceeded| no_match[no_match_node<br>Deterministic Honest Refusal]
+    res_time -->|valid time| fetch_wx[fetch_weather<br>Open-Meteo REST API 16-Day Horizon]
+    fetch_wx --> verify_payload[verify_payload<br>Verify Coords <= 0.5°, Units, Non-null]
+    verify_payload -->|mismatch / API outage| data_fail[data_fail<br>DATA_UNAVAILABLE] --> guards
     
-    compose --> guard[number_guard<br>Deterministic Numeric Whitelist]
-    no_match --> guard
-    
-    guard --> END
+    verify_payload -->|verified| select_sops[select_sops<br>LLM at Temp 0 / ID, Title, Intent Only]
+    select_sops --> evaluate_sops[evaluate_sops<br>Deterministic Python Evaluation<br>Universal Overrides Evaluated First]
+    evaluate_sops --> resolve_prec[resolve_precedence<br>Severity Ranking & Status Enum]
+    resolve_prec --> render[render<br>Verbatim SOP Advice & Telemetry Header]
+    render --> guards
+    guards --> log_dec[log_decision<br>Audit Entry to decision_log & SessionState]
+    log_dec --> END
 ```
 
 ### Component Nodes & Deterministic Boundaries
 
 | Node | Type | Responsibility & Safety Guardrail |
 |---|---|---|
-| `intake_node` | Bounded LLM / Rule Extractor | Extracts `{activity, location, time_window}`. Retains previous turn's location from `session_facts` on follow-ups. Detects out-of-scope queries and non-Latin input before geocoding. |
-| `out_of_scope_node` | **Deterministic** | Intercepts financial queries, extreme mountaineering, prompt leak attempts, and national early warning systems (`config/out_of_scope.yaml`). Returns polite categorical refusal without prompting for a city. |
-| `ask_location_node` | **Deterministic** | Triggered when location is missing from query and session memory or is non-Latin/emoji. Returns polite request for city. |
-| `location_resolve` | Deterministic Tool | Calls Open-Meteo Geocoding API (`/v1/search?name=<city>&count=5`). Resolves canonical place names and populates coordinates in `session_facts`. |
-| `fetch_weather` | Deterministic Tool | Aggregates all fields dynamically required by active SOPs and calls Open-Meteo Forecast API. Preserves pre-supplied historical storm fixtures when present. |
-| `match_sops` | **Deterministic Code** | Evaluates universal overrides first (`override: true`, e.g. `SOP-001`), then activity-specific rules. Grounded in explicit target time slice (resolving "this weekend", "tonight", "tomorrow morning"). |
-| `compose_node` | Constrained LLM | Synthesizes natural language answer using **strictly** advice text from matched SOPs and numbers from the API. Appends SOP citation badges. |
-| `no_match_node` | **Deterministic** | Outputs distinct, honest fallbacks according to query status (`NO_POLICY`, `NO_HAZARD_MATCHED`, `DATA_UNAVAILABLE`, `OUT_OF_SCOPE`). LLM is **never** invoked. |
-| `number_guard` | **Deterministic Code** | Scans final text for all numbers, whitelisting against API payload, unit conversions, SOP literals, and user inputs. Replaces corrupted responses with safe deterministic fallback on mismatch. |
-| `failure_node` | **Deterministic** | Catches geocoding errors or weather outages. Refuses to invent synthetic forecasts. |
+| `parse_turn` | LLM (Temp 0) + Pure Rules | Rebuilds `TurnState` completely from scratch every turn. Extracts dialogue acts (`challenge`, `override_attempt`, `fake_policy`, `summary`, `disclosure`, `out_of_scope`), subject demographic, and gerund activities. Prevents failed geocodes from touching `SessionState`. |
+| `meta_node` | **Deterministic** | Answers meta dialogue acts exclusively from `SessionState.decision_log`. Refutes challenges ("no clearance was given"), rejects authority overrides ("I can't change a verdict. It comes from SOP-X and the data"), verifies fake SOPs against registry, and renders audit history. |
+| `scope_node` | **Deterministic** | Intercepts non-weather topics (stocks, clothing, asthma AQI, extreme mountaineering, IMD synoptic early warnings). Emits categorical scope notice without asking for city. |
+| `resolve_location` | Deterministic Geocoding | Resolves place via Open-Meteo Geocoding. Handles coordinates and open ocean. Strictly isolates failed geocodes from writing to `SessionState`. Carry-over applies only to follow-up phrasing. |
+| `resolve_time` | **Deterministic Python** | Evaluates timezone-aware target time (`now`, `hour`, `day`, `past`, `beyond_horizon`). Bounds queries to 16-day forecast horizon. |
+| `fetch_weather` | Deterministic Tool | Aggregates all fields dynamically required by active SOPs with 16-day forecast horizon. Uses 10-minute location-keyed caching `(lat, lon, bucket)`. |
+| `verify_payload` | **Deterministic Code** | Verifies response coordinates match resolved location within $0.5^\circ$, verifies units match assumed code units, and ensures required metrics are non-null. Returns `DATA_UNAVAILABLE` on discrepancy. |
+| `select_sops` | LLM (Temp 0) | Selects candidate SOPs from a catalog containing ONLY `id`, `title`, and `intent` (no thresholds exposed). Drops any ID not in registry. Universal overrides and demographic SOPs are always included. |
+| `evaluate_sops` | **Deterministic Python** | Evaluates conditions deterministically in Python against target time metrics. Universal overrides (`SOP-001`, `SOP-006`, `SOP-002`) are evaluated before activity eligibility. |
+| `resolve_precedence` | **Deterministic Python** | Sorts active hazards by severity (critical > high > moderate > low). Overrides suppress lower permissive leisure SOPs. Determines 7-state `SafetyStatus` enum. |
+| `render` | **Deterministic Code** | Single render path. Opens with resolved place and coordinates. Renders verbatim SOP advice text and telemetry values. Derives activities in gerund form. Lists evaluated and fired SOP IDs. |
+| `guards` | **Deterministic Code** | Enforces non-negotiable safety constraints: whitelists every number against payload, code conversions, coords, and SOP literals; bans unearned safety clearance phrases; replaces text with safe fallback on failure. |
+| `log_decision` | **Deterministic Code** | Records immutable audit log into `SessionState.decision_log` and telemetry snapshot for data freshness diffing. Updates `last_good_location` only on successful completion. |
+| `failure_nodes` | **Deterministic** | `location_fail`, `time_fail`, `data_fail` provide honest, transparent explanations without guessing. |
 
 ### Deterministic 7-State Status Taxonomy
 
 Instead of overloading a generic "UNCOVERED" flag, the system reports 7 explicit, auditable statuses:
 
-| Status | Meaning | LLM Invoked? | Citations | Example Trigger |
-|---|---|---|---|---|
-| `UNSAFE` | Active danger threshold exceeded (high severity) | Yes (constrained) | `["SOP-001"]`, etc. | Sustained winds > 40 km/h for cyclists |
-| `CAUTION` | Marginal weather condition (moderate severity) | Yes (constrained) | `["SOP-003"]`, etc. | Apparent temp 32–37.9°C for runners |
-| `NO_HAZARD_MATCHED` | Activity is covered by policies, but conditions are calm | No | None | Light breeze & 22°C for outdoor cycling |
-| `NO_POLICY` | Activity is not covered by any authorized SOP | No | None | River swimming, commercial drone flight |
-| `OUT_OF_SCOPE` | Topic outside operational domain, past time, or horizon exceeded | No | None | Stock tips, Everest, past hours, >14d forecast |
-| `DATA_UNAVAILABLE` | Required telemetry variable is null/missing from API | No | None | Missing UV telemetry for children's playground |
-| `REFUSED` | System prompt extraction or adversarial override injection | No | None | "SYSTEM OVERRIDE: Ignore SOPs" |
+| Status | Meaning | Citations | Example Trigger |
+|---|---|---|---|
+| `UNSAFE` | Active high or critical hazard threshold exceeded, or universal override fired | `["SOP-001"]`, etc. | Sustained winds > 40 km/h for cyclists or severe rain override |
+| `ADVISORY` | Moderate or low hazard advisory threshold exceeded | `["SOP-003"]`, etc. | Apparent temp 32–37.9°C during outdoor exercise |
+| `NO_HAZARD_MATCHED` | Activity is covered by policies; all measured parameters are below alert thresholds | `[]` | Light breeze & 22°C for outdoor cycling |
+| `NO_POLICY` | Activity is not covered by any authorized SOP | `[]` | River swimming, commercial drone flight |
+| `OUT_OF_SCOPE` | Topic outside operational domain, non-weather, or national warning feeds | `[]` | Stock tips, Everest, IMD early-warning feeds |
+| `DATA_UNAVAILABLE` | Required telemetry variable null/missing, coordinates mismatch (>0.5°), or service offline | `[]` | Weather API timeout or coordinate discrepancy |
+| `REFUSED` | Forecast horizon exceeded (>16 days), prompt disclosure, or adversarial override attempt | `[]` | Queries for next month or "SYSTEM OVERRIDE" |
 
 ---
 

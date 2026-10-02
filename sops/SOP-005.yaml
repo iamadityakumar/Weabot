@@ -1,5 +1,6 @@
 id: SOP-005
 title: Wet Road and Heavy Rain Travel Hazard
+intent: "Wet roads, low traction, and hydroplaning hazards during vehicle commuting, driving, and road transit."
 category: travel
 severity: moderate
 applies_to:

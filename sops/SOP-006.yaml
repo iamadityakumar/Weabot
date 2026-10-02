@@ -1,5 +1,6 @@
 id: SOP-006
 title: Dense Fog and Low Visibility Travel Hazard
+intent: "Dense fog, smog, and low visibility collision hazards for road travel, commuting, and highway driving."
 category: travel
 severity: high
 applies_to:

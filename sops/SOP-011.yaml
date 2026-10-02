@@ -1,5 +1,6 @@
 id: SOP-011
 title: Ideal Conditions for Family Picnic and Outdoor Gathering
+intent: "Optimal pleasant weather criteria for family picnics, park outings, open-air barbecues, and social gatherings."
 category: general_leisure
 severity: low
 applies_to:
@@ -26,4 +27,4 @@ conditions:
 
 advice: >
   Current weather conditions are optimal for an outdoor picnic, park outing, or family gathering.
-  Temperatures are mild and comfortable, winds are gentle, and risk of precipitation is negligible. Enjoy the outing with basic personal hydration and light sun protection.
+  Temperatures are mild and comfortable, winds are gentle, and risk of precipitation is negligible. Plan the outing with basic personal hydration and light sun protection.

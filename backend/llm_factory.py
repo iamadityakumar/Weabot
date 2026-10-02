@@ -94,7 +94,8 @@ class LLMFactory:
     def __init__(self):
         self.provider = settings.LLM_PROVIDER
         self._llm_cache: Dict[str, Any] = {}
-        self._default_llm = self._create_llm_instance(settings.GEMINI_MODEL)
+        default_model = settings.GROQ_MODEL if self.provider == "groq" else settings.GEMINI_MODEL
+        self._default_llm = self._create_llm_instance(default_model)
 
     def _create_llm_instance(self, model_name: str) -> Optional[Any]:
         """Instantiate an LLM based on model name and environment credentials."""
@@ -301,14 +302,14 @@ Extract the activity, location (city/town), and time window from the user's mess
 CRITICAL RULES:
 1. Extract ONLY a legitimate geographical city, town, or region (e.g., "Bhopal", "Denver", "Tokyo").
 2. NEVER extract measurement units, rates, or formats as a location (e.g. "m/s", "mph", "km/h", "m", "celsius", "fahrenheit" are NOT locations).
-3. If the user's query is a follow-up or unit conversion request without a new city name, retain the previous location: '{prior_location or "None"}'. If no location was previously known and none is specified in this query, set location to null.
+3. Extract the location as written in the query (even if unfamiliar or misspelled, e.g. "Xqzvbnmtrw"). If no location is mentioned at all in this query, set location to null.
 
 User query: "{user_message}"
 
 Respond strictly with valid JSON without markdown fences:
 {{
   "activity": "<activity name or null>",
-  "location": "<city name or null>",
+  "location": "<location or null>",
   "time_window": "<time window or 'current'>"
 }}
 """
@@ -319,8 +320,6 @@ Respond strictly with valid JSON without markdown fences:
 
                 # Validate and clean extracted location
                 parsed_loc = clean_and_validate_location(parsed.get("location"))
-                if not parsed_loc and prior_location:
-                    parsed_loc = prior_location
                 parsed["location"] = parsed_loc
 
                 return parsed
@@ -464,6 +463,71 @@ Respond strictly with valid JSON without markdown fences:
             "location": location,
             "time_window": time_window
         }
+
+    def select_sop_candidates(
+        self,
+        user_query: str,
+        activity: str,
+        subject: str,
+        catalog: List[Dict[str, str]],
+        model_name: Optional[str] = None
+    ) -> List[str]:
+        """
+        WP5 Selection Step:
+        The LLM, at temperature 0, returns {sop_ids:[...]} or {none:true} from a catalog
+        of ID, title and intent only (no thresholds).
+        """
+        catalog_json = json.dumps(catalog, indent=2)
+        prompt = f"""You are a safety policy classifier for outdoor activities.
+Given the user query, planned activity, and demographic subject, select which Standard Operating Procedure (SOP) IDs from the policy catalog may apply.
+Catalog contains only Policy ID, Title, and Policy Intent. No weather thresholds are included.
+
+User Query: "{user_query}"
+Activity: "{activity}"
+Subject: "{subject}"
+
+Policy Catalog:
+{catalog_json}
+
+Return ONLY valid JSON in one of these two formats:
+{{"sop_ids": ["SOP-001", "SOP-004"]}}
+or
+{{"none": true}}
+"""
+        llm = self.get_llm(model_name)
+        if llm:
+            try:
+                resp = llm.invoke(prompt)
+                text = self._extract_text_from_response(resp)
+                # Parse JSON
+                json_match = re.search(r"\{.*\}", text, re.DOTALL)
+                if json_match:
+                    parsed = json.loads(json_match.group(0))
+                    if parsed.get("none"):
+                        return []
+                    if "sop_ids" in parsed and isinstance(parsed["sop_ids"], list):
+                        return [str(x) for x in parsed["sop_ids"]]
+            except Exception as e:
+                pass
+
+        # Fallback keyword match
+        res = []
+        q_low = f"{user_query} {activity}".lower()
+        for item in catalog:
+            cid = item["id"]
+            title_low = item.get("title", "").lower()
+            intent_low = item.get("intent", "").lower()
+            if any(w in q_low for w in ["cycl", "bike", "two-wheeler", "scooter"]) and "wind" in title_low:
+                res.append(cid)
+            elif any(w in q_low for w in ["toddler", "child", "infant", "kid", "playground"]) and "uv" in title_low:
+                res.append(cid)
+            elif any(w in q_low for w in ["grandpa", "elderly", "senior", "stroll"]) and ("cold" in title_low or "heat" in title_low):
+                res.append(cid)
+            elif any(w in q_low for w in ["picnic", "gathering"]) and "picnic" in title_low:
+                res.append(cid)
+            elif any(w in q_low for w in ["dog", "pet"]) and "pet" in title_low:
+                res.append(cid)
+        return list(set(res))
 
     def compose_response(
         self,
