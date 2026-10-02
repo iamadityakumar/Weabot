@@ -10,6 +10,7 @@ services:
     volumes:
       - ./sessions:/app/sessions
       - ./sops:/app/sops
+      - ./.env:/app/.env
     env_file:
       - .env
     networks:
