@@ -235,9 +235,9 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
     };
   } else if (isNoHazard) {
     verdictStyles = {
-      badge: 'bg-emerald-600 text-white shadow-emerald-900/20',
-      icon: CheckCircle2,
-      label: 'NO ACTIVE HAZARDS · BELOW ALERT THRESHOLDS',
+      badge: 'bg-slate-600 text-white shadow-slate-900/20',
+      icon: ShieldCheck,
+      label: 'No SOP thresholds exceeded.',
       title: verdict?.title || 'Advisory Checked · No Active Hazard SOP',
       summary: verdict?.summary || 'Current model-based conditions are below active hazard alert thresholds.',
     };
@@ -267,9 +267,9 @@ export default function VerdictWeatherCard({ verdict, weather, sessionFacts, sop
     };
   } else {
     verdictStyles = {
-      badge: 'bg-emerald-600 text-white shadow-emerald-900/20',
-      icon: CheckCircle2,
-      label: 'ADVISORY CHECKED · NO ACTIVE HAZARDS',
+      badge: 'bg-slate-600 text-white shadow-slate-900/20',
+      icon: ShieldCheck,
+      label: 'No SOP thresholds exceeded.',
       title: verdict?.title || 'Advisory Evaluated',
       summary: verdict?.summary || 'Current conditions evaluated against standard operating procedures.',
     };

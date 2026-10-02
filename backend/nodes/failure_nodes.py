@@ -13,10 +13,13 @@ def location_fail_node(state: AgentState) -> Dict[str, Any]:
     err_msg = turn_state.get("error_message") or "Could you tell me which city or town you'd like the weather safety check for?"
 
     status = SafetyStatus.REFUSED.value
-    if "ocean" in err_msg.lower() or "coordinates" in err_msg.lower():
+    if turn_state.get("error_type") == "ask_activity" or "activity are you planning" in err_msg.lower() or "what outdoor activity" in err_msg.lower():
+        title = "Activity Required"
+        status = SafetyStatus.NO_POLICY.value
+    elif "ocean" in err_msg.lower() or "coordinates" in err_msg.lower():
         title = "Ocean / Remote Coordinates Uncovered"
         status = SafetyStatus.NO_POLICY.value
-    elif "could not resolve" in err_msg.lower():
+    elif "could not resolve" in err_msg.lower() or "could not find that place" in err_msg.lower():
         title = "Location Resolution Failed"
     elif "devanagari" in err_msg.lower() or "latin" in err_msg.lower():
         title = "Script Limitation Notice"
@@ -32,6 +35,9 @@ def location_fail_node(state: AgentState) -> Dict[str, Any]:
             "severity": "low",
             "summary": err_msg
         },
+        "weather_data": None,
+        "effective_weather": None,
+        "api_source": None,
         "error_message": err_msg
     }
 

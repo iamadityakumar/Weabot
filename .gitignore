@@ -1,6 +1,7 @@
-sessions/
-evals/__pycache__/
-evals/*.json
+.
+
+
+
 PROGRESS.md
 # Environment and secrets
 .env
@@ -36,3 +37,5 @@ Thumbs.db
 .vscode/
 .idea/
 graphify-out/
+sessions/
+evals/*_results.json

@@ -132,7 +132,7 @@ async def run_multi_step_verification():
             "name": "Gibberish Location Fault Injection",
             "prompt": "Is it safe to cycle in Xqzvbnmtrw today?",
             "expected_checks": [
-                ("Location resolution failure", lambda r: "could not resolve location" in r["final_response"].lower() or "location not found" in str(r.get("verdict", {})).lower()),
+                ("Location resolution failure", lambda r: "could not resolve location" in r["final_response"].lower() or "could not find that place" in r["final_response"].lower() or "location resolution failed" in str(r.get("verdict", {})).lower()),
                 ("Session state preserved", lambda r: (r.get("session_state") or {}).get("last_good_location", {}).get("name") in ("Jaipur", "Bhopal"))
             ]
         },

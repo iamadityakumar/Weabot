@@ -239,9 +239,37 @@ class WeatherClient:
             self._geocode_cache[clean_name] = resolved
             return resolved
 
+        hits = await self.geocode_hits(city_name, count=5)
+        if not hits:
+            raise GeocodingError(f"Could not resolve location: '{city_name}'")
+        resolved = hits[0]
+        self._geocode_cache[clean_name] = resolved
+        return resolved
+
+    async def geocode_hits(self, city_name: str, count: int = 5) -> List[Dict[str, Any]]:
+        """
+        Query Open-Meteo for candidate hits (up to count) to support similarity ranking.
+        """
+        if not city_name or not city_name.strip():
+            return []
+
+        clean_name = city_name.strip().lower()
+
+        # Check known city stubs first if enabled
+        if self.use_city_stubs and clean_name in CITY_STUBS:
+            stub = CITY_STUBS[clean_name]
+            return [{
+                "name": stub["name"],
+                "latitude": stub["latitude"],
+                "longitude": stub["longitude"],
+                "country": stub["country"],
+                "admin1": stub["admin1"],
+                "timezone": stub["timezone"]
+            }]
+
         params = {
             "name": city_name.strip(),
-            "count": 5,
+            "count": count,
             "language": "en",
             "format": "json"
         }
@@ -250,29 +278,27 @@ class WeatherClient:
             async with httpx.AsyncClient(timeout=8.0) as client:
                 resp = await client.get(self.geocoding_url, params=params)
                 if resp.status_code != 200:
-                    raise GeocodingError(f"Geocoding service returned HTTP {resp.status_code}")
+                    return []
 
                 data = resp.json()
                 results = data.get("results")
                 if not results or len(results) == 0:
-                    raise GeocodingError(f"Could not resolve location: '{city_name}'")
+                    return []
 
-                top_match = results[0]
-                resolved = {
-                    "name": top_match.get("name", city_name),
-                    "latitude": round(float(top_match["latitude"]), 4),
-                    "longitude": round(float(top_match["longitude"]), 4),
-                    "country": top_match.get("country", ""),
-                    "admin1": top_match.get("admin1", ""),
-                    "timezone": top_match.get("timezone", "UTC"),
-                }
-                self._geocode_cache[clean_name] = resolved
-                return resolved
+                hits = []
+                for r in results:
+                    hits.append({
+                        "name": r.get("name", city_name),
+                        "latitude": round(float(r["latitude"]), 4),
+                        "longitude": round(float(r["longitude"]), 4),
+                        "country": r.get("country", ""),
+                        "admin1": r.get("admin1", ""),
+                        "timezone": r.get("timezone", "UTC"),
+                    })
+                return hits
 
-        except httpx.RequestError as e:
-            raise GeocodingError(f"Geocoding network error: {e}")
-        except (KeyError, ValueError, TypeError) as e:
-            raise GeocodingError(f"Malformed geocoding response: {e}")
+        except Exception:
+            return []
 
     async def fetch_weather(
         self,

@@ -59,6 +59,10 @@ class SessionFacts(TypedDict, total=False):
 
 class AgentState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
+    user_message: Optional[str]
+    intent: Optional[str]  # weather_safety, smalltalk, about_bot, meta_session, out_of_scope
+    place_text: Optional[str]
+    activity_text: Optional[str]
     turn_state: TurnState
     session_state: SessionState
     

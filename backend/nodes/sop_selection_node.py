@@ -69,6 +69,10 @@ def select_sops_node(state: AgentState) -> Dict[str, Any]:
     candidate_ids.add("SOP-002")
     candidate_ids.add("SOP-006")
 
+    # Exclude pet-specific protocol SOP-009 if subject is not a pet
+    if subject != "pet":
+        candidate_ids.discard("SOP-009")
+
     # Drop any ID not in registry
     valid_candidates = sorted([cid for cid in candidate_ids if cid in registry])
 

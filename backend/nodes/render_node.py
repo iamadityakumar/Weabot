@@ -90,6 +90,7 @@ def render_node(state: AgentState) -> Dict[str, Any]:
     activity_gerund = turn_state.get("activity_label") or "general outdoor activity"
 
     # 5. SOP Evaluation and Fired Status
+    has_activity = bool(turn_state.get("activity") and str(turn_state.get("activity")).strip().lower() not in ("none", "null", "", "general outdoor activity"))
     evaluated_sops = state.get("evaluated_sops") or []
     fired_sops = state.get("fired_sops") or []
     eval_ids = [s["id"] for s in evaluated_sops]
@@ -98,10 +99,12 @@ def render_node(state: AgentState) -> Dict[str, Any]:
     eval_str = ", ".join(eval_ids) if eval_ids else "None"
     fired_str = ", ".join(fired_ids) if fired_ids else "None"
 
-    meta_footer = (
-        f"• **SOPs Evaluated**: [{eval_str}]\n"
-        f"• **SOPs Fired**: [{fired_str}]"
-    )
+    meta_footer = None
+    if has_activity and (eval_ids or fired_ids):
+        meta_footer = (
+            f"• **SOPs Evaluated**: [{eval_str}]\n"
+            f"• **SOPs Fired**: [{fired_str}]"
+        )
 
     verdict = state.get("verdict") or {}
     status = verdict.get("status")
@@ -123,7 +126,8 @@ def render_node(state: AgentState) -> Dict[str, Any]:
         # WP7 Uncovered Template: Drop self-justifying sentence and park rangers.
         uncovered_msg = f"No SOP covers {activity_gerund}. Please check with local authorities."
         sections.append(f"\n{uncovered_msg}")
-        sections.append(f"\n{meta_footer}")
+        if meta_footer:
+            sections.append(f"\n{meta_footer}")
 
     elif status == SafetyStatus.NO_HAZARD_MATCHED.value:
         no_hazard_msg = (
@@ -132,7 +136,8 @@ def render_node(state: AgentState) -> Dict[str, Any]:
             "*(Note: Weabot verifies conditions against defined thresholds and does not issue general safety endorsements. Please remain attentive to shifting weather.)*"
         )
         sections.append(f"\n{no_hazard_msg}")
-        sections.append(f"\n{meta_footer}")
+        if meta_footer:
+            sections.append(f"\n{meta_footer}")
 
     elif status in (SafetyStatus.UNSAFE.value, SafetyStatus.ADVISORY.value):
         advice_blocks = []
@@ -156,7 +161,8 @@ def render_node(state: AgentState) -> Dict[str, Any]:
             )
 
         sections.append("\n" + "\n\n".join(advice_blocks))
-        sections.append(f"\n{meta_footer}")
+        if meta_footer:
+            sections.append(f"\n{meta_footer}")
 
     final_text = "\n\n".join(sections).strip()
 

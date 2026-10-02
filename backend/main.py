@@ -237,6 +237,7 @@ async def chat_endpoint(request: ChatRequest):
     try:
         initial_input = {
             "messages": [HumanMessage(content=request.message.strip())],
+            "user_message": request.message.strip(),
             "requested_model": requested_model,
         }
         result = await safety_advisor_graph.ainvoke(initial_input, config=config)

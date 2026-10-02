@@ -116,11 +116,37 @@ export default function MessageBubble({ message, userName = 'Aditya' }) {
 
   const hasSources = !!sourceInfo;
 
+  // Fix 5: Render weather card ONLY when status is a genuine weather answer (never for smalltalk, scope, or asking for place/activity)
+  const WEATHER_ANSWER_STATUSES = ['ADVISORY', 'UNSAFE', 'NO_HAZARD_MATCHED', 'NO_POLICY'];
+  const vStatus = message.verdict?.status;
+  const vTitle = (message.verdict?.title || '').toLowerCase();
+  const msgTextLower = (message.text || '').toLowerCase();
+
+  const isNonWeather = 
+    vTitle.includes('scope') || 
+    vTitle.includes('about') || 
+    vTitle.includes('casual') || 
+    vTitle.includes('location required') || 
+    vTitle.includes('activity required') ||
+    msgTextLower.includes('which city or town') ||
+    msgTextLower.includes('what outdoor activity are you planning');
+
+  const hasPlace = Boolean(message.sessionFacts?.location_name || message.verdict?.location || message.apiSource?.city);
+  const hasActivity = Boolean(message.sessionFacts?.activity || message.verdict?.activity);
+
+  const shouldRenderWeatherCard = Boolean(
+    message.weatherData &&
+    WEATHER_ANSWER_STATUSES.includes(vStatus) &&
+    !isNonWeather &&
+    hasPlace &&
+    hasActivity
+  );
+
   return (
     <div className="flex justify-start mb-3.5 animate-fadeIn">
       <div className="flex flex-col gap-1.5 w-full min-w-0">
         {/* Active SOP Badges (if any policy triggered) */}
-        {citations.length > 0 && (
+        {citations.length > 0 && shouldRenderWeatherCard && (
           <div className="flex flex-wrap items-center gap-1 mb-0.5">
             <span className="text-[10px] text-gray-400 font-medium">Applied SOPs:</span>
             {citations.map((c) => (
@@ -130,7 +156,7 @@ export default function MessageBubble({ message, userName = 'Aditya' }) {
         )}
 
         {/* 1. Highlighted Verdict & Weather Master Card */}
-        {message.weatherData && (
+        {shouldRenderWeatherCard && (
           <VerdictWeatherCard
             verdict={message.verdict}
             weather={message.weatherData}

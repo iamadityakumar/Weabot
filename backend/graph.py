@@ -2,8 +2,9 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from backend.agent_state import AgentState
-from backend.nodes.parse_turn import parse_turn_node
-from backend.nodes.route import route_turn
+from backend.nodes.route import route_node
+from backend.nodes.about_node import about_node
+from backend.nodes.smalltalk_node import smalltalk_node
 from backend.nodes.meta_node import meta_node
 from backend.nodes.scope_node import scope_node
 from backend.nodes.location_resolver import resolve_location_node
@@ -25,7 +26,7 @@ from backend.nodes.failure_nodes import (
 # Conditional Edge Checkers
 def check_location_branch(state: AgentState) -> str:
     turn_state = state.get("turn_state") or {}
-    if turn_state.get("error_type") == "location_fail" or not turn_state.get("resolved_location"):
+    if turn_state.get("error_type") in ("location_fail", "ask_activity") or not turn_state.get("resolved_location"):
         return "location_fail"
     return "resolve_time"
 
@@ -49,19 +50,23 @@ def check_verify_branch(state: AgentState) -> str:
 
 def build_safety_graph(checkpointer: bool = True):
     """
-    Constructs the LangGraph state machine with the Target Graph:
-    parse_turn -> route ->
-      meta_node        (challenge / override / fake SOP / summary / disclosure)
-      scope_node       (out of scope)
-      weather path:
-        resolve_location -> resolve_time -> fetch_weather -> verify_payload ->
-        select_sops -> evaluate_sops -> resolve_precedence -> render -> guards -> log_decision
+    Target Graph with Router Gate Before Anything Else:
+    START -> route ->
+      - smalltalk: smalltalk_node -> END
+      - about_bot: about_node -> END
+      - meta_session: meta_node -> END
+      - out_of_scope: scope_node -> END
+      - weather_safety:
+          resolve_location -> resolve_time -> fetch_weather -> verify_payload ->
+          select_sops -> evaluate_sops -> resolve_precedence -> render -> guards -> log_decision
       failures: location_fail / time_fail / data_fail -> honest reply
     """
     builder = StateGraph(AgentState)
 
     # 1. Register All Nodes
-    builder.add_node("parse_turn", parse_turn_node)
+    builder.add_node("route", route_node)
+    builder.add_node("smalltalk_node", smalltalk_node)
+    builder.add_node("about_node", about_node)
     builder.add_node("meta_node", meta_node)
     builder.add_node("scope_node", scope_node)
     
@@ -82,25 +87,29 @@ def build_safety_graph(checkpointer: bool = True):
     builder.add_node("time_fail", time_fail_node)
     builder.add_node("data_fail", data_fail_node)
 
-    # 2. Entry point
-    builder.add_edge(START, "parse_turn")
+    # 2. Entry point: Router before anything else
+    builder.add_edge(START, "route")
 
-    # 3. Route Branch
+    # 3. Router Conditional Edges
     builder.add_conditional_edges(
-        "parse_turn",
-        route_turn,
+        "route",
+        lambda s: s.get("intent", "out_of_scope"),
         {
-            "meta_node": "meta_node",
-            "scope_node": "scope_node",
-            "resolve_location": "resolve_location"
+            "weather_safety": "resolve_location",
+            "smalltalk": "smalltalk_node",
+            "about_bot": "about_node",
+            "meta_session": "meta_node",
+            "out_of_scope": "scope_node"
         }
     )
 
-    # Meta & Scope terminal paths
+    # Non-weather terminal paths (Zero weather data carried)
+    builder.add_edge("smalltalk_node", END)
+    builder.add_edge("about_node", END)
     builder.add_edge("meta_node", END)
     builder.add_edge("scope_node", END)
 
-    # 4. Location branch (success vs location_fail)
+    # 4. Location branch (success vs location_fail / ask_activity)
     builder.add_conditional_edges(
         "resolve_location",
         check_location_branch,
