@@ -23,6 +23,8 @@ applies_to:
   - stroll
   - grandpa
   - elderly
+  - exercise
+  - exercising
 
 conditions:
   - type: compound

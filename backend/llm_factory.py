@@ -99,7 +99,18 @@ INVALID_LOCATION_WORDS = {
     "cycle", "cycling", "bike", "biking", "pedal", "pedaling", "run", "running",
     "jog", "jogging", "walk", "walking", "stroll", "swim", "swimming", "drive",
     "driving", "commute", "travel", "climb", "climbing", "fly", "flying", "drone",
-    "picnic", "bbq", "barbecue", "hike", "hiking", "exercise", "workout", "play", "playground"
+    "picnic", "bbq", "barbecue", "hike", "hiking", "exercise", "exercising", "workout",
+    "working out", "play", "playground",
+
+    # Pronouns, auxiliary verbs, and demographic subjects (never a location)
+    "will", "would", "shall", "should", "can", "could", "may", "might", "must",
+    "be", "been", "being", "is", "are", "was", "were", "go", "going", "take", "bring",
+    "my", "your", "his", "her", "our", "their", "its", "me", "us", "him", "them", "someone",
+    "ok", "okay", "0k", "fine", "good", "well", "safe", "alright", "all right",
+    "grandpa", "grandma", "grandfather", "grandmother", "dad", "mom", "father", "mother",
+    "elderly", "senior", "child", "children", "kid", "kids", "toddler", "baby", "infant",
+    "dog", "cat", "pet", "pets", "family", "friend", "friends", "person", "people",
+    "will grandpa", "will my grandpa", "my grandpa", "this evening"
 }
 
 
@@ -107,8 +118,9 @@ TEMPORAL_STOP_WORDS = {
     "this", "evening", "instead", "morning", "afternoon", "tomorrow", "tonight",
     "today", "now", "yesterday", "later", "earlier", "weekend", "next", "week",
     "month", "year", "what", "about", "how", "here", "there", "at", "noon", "right",
-    "is", "it", "okay", "fine", "safe", "better", "can", "i", "or", "and", "then",
-    "rather", "in", "days", "hours", "2am", "8am", "morning", "night"
+    "is", "it", "okay", "ok", "0k", "fine", "safe", "better", "can", "i", "or", "and", "then",
+    "rather", "in", "days", "hours", "2am", "8am", "morning", "night", "this evening",
+    "today evening", "this afternoon", "this morning"
 }
 
 def clean_and_validate_location(cand: Optional[str]) -> Optional[str]:

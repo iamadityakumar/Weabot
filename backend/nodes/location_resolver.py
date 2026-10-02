@@ -57,8 +57,15 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
 
     # 3. Extract place candidate: state location, pending_request, place_text, or preposition
     q = (state.get("location") or (state.get("pending_request") or {}).get("location") or state.get("place_text") or turn_state.get("place_text") or turn_state.get("raw_location") or "").strip()
+    from backend.llm_factory import clean_and_validate_location, INVALID_LOCATION_WORDS, TEMPORAL_STOP_WORDS
+    if q:
+        val_q = clean_and_validate_location(q)
+        if not val_q and (q.lower() in INVALID_LOCATION_WORDS or all(w.lower() in INVALID_LOCATION_WORDS or w.lower() in TEMPORAL_STOP_WORDS for w in q.split())):
+            q = ""
+        elif val_q:
+            q = val_q
+
     if not q:
-        from backend.llm_factory import clean_and_validate_location
         # Prioritize 'in', 'around', 'near' over 'at' (which often attaches to times e.g. 'at 1 PM' or venues 'at the park')
         m_prep = re.search(r"\b(?:in|around|near)\s+([A-Za-z0-9_\-]+(?:\s+[A-Za-z0-9_\-]+)*)", user_query, re.IGNORECASE)
         if not m_prep:

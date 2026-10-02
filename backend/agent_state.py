@@ -105,7 +105,7 @@ canonical_activity_ids = {
     "running", "jogging", "walking", "driving", "commuting", "outdoor gathering",
     "outdoor play", "park outing", "flying a drone", "swimming", "hiking",
     "mountain climbing", "indoor yoga", "general outdoor activity",
-    "surfing", "kayaking", "bungee jumping"
+    "surfing", "kayaking", "bungee jumping", "exercise", "exercising", "workout", "working out"
 }
 
 def assert_pending_request_consistency(state: Dict[str, Any]):

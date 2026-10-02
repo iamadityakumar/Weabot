@@ -21,6 +21,12 @@ applies_to:
   - workout
   - cardio
   - athletics
+  - exercise
+  - exercising
+  - walking
+  - walk
+  - elderly
+  - grandpa
 conditions:
   - type: threshold
     field: apparent_temperature

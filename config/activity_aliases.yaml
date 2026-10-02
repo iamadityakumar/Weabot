@@ -56,9 +56,20 @@ walking:
     - walking
     - walk
     - stroll
-    - grandpa
     - morning walk
     - evening walk
+
+exercise:
+  canonical: exercise
+  category: outdoor_exercise
+  aliases:
+    - exercise
+    - exercising
+    - workout
+    - working out
+    - outdoor exercise
+    - physical exercise
+    - athletics
 
 playground:
   canonical: playground

@@ -2,7 +2,7 @@ import re
 from typing import Dict, Any, Optional, Literal
 from pydantic import BaseModel
 from backend.agent_state import AgentState, SessionState, TurnState, assert_pending_request_consistency, canonical_activity_ids
-from backend.llm_factory import llm_factory, clean_and_validate_location, is_quota_exhausted_error
+from backend.llm_factory import llm_factory, clean_and_validate_location, is_quota_exhausted_error, TEMPORAL_STOP_WORDS, INVALID_LOCATION_WORDS
 from backend.weather_client import CITY_STUBS
 from backend.nodes.location_resolver import STOP
 from backend.nodes.parse_turn import (
@@ -526,18 +526,24 @@ def normal_route(
     # 4. Handle Pending Slots & Routing
     # Case A: Activity known, but location missing -> NEEDS_LOCATION
     if canonical_act and not known_place:
-        skip_words = set(STOP) | {
-            "what", "are", "the", "official", "high", "wind", "safety", "guidelines", "for", "cycling",
-            "is", "it", "safe", "safely", "can", "i", "we", "go", "to", "a", "an", "today", "tomorrow",
-            "rules", "policy", "policies", "regulations", "protocol", "protocols", "conditions", "tips",
-            "advice", "precaution", "precautions", "speed", "gusts", "check", "tell", "me", "about",
-            "outdoor", "activity", "activities", "want", "would", "like"
-        }
-        tokens = [t.lower() for t in re.findall(r"\b[A-Za-z]+\b", msg_clean)]
-        cand_locs = [t for t in tokens if t not in GERUND_MAP and t not in skip_words and len(t) >= 3]
-        if cand_locs:
+        cand_place = None
+        # Check explicit preposition pattern first (e.g. "in Delhi", "around Paris")
+        prep_m = re.search(r"\b(?:in|at|near|around)\s+([a-zA-Z\s\-]+?)(?:\s+(?:today|tomorrow|tonight|this|now|\d{1,2}(?:am|pm))|\?|$)", msg_clean, re.I)
+        if prep_m:
+            cand = clean_and_validate_location(prep_m.group(1))
+            if cand:
+                cand_place = cand
+
+        # Only check shorthand queries (<= 3 words, e.g. "Xqzvbnmtrw cycling") if no preposition
+        if not cand_place and len(msg_clean.strip().split()) <= 3:
+            tokens = [w for w in re.findall(r"\b[A-Za-z0-9_\-]+\b", msg_clean) if w.lower() not in TEMPORAL_STOP_WORDS and w.lower() not in INVALID_LOCATION_WORDS]
+            cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in INVALID_LOCATION_WORDS and len(w) >= 3]
+            if cand_tokens:
+                cand_str = " ".join(cand_tokens)
+                cand_place = clean_and_validate_location(cand_str) or cand_str
+
+        if cand_place:
             # Candidate location attempted: route to weather_safety for resolution attempt & honest failure
-            cand_place = " ".join(cand_locs[:2])
             res = {
                 "intent": "weather_safety",
                 "route": "weather_safety",
@@ -741,15 +747,25 @@ def normal_route(
     if r is None:
         # Deterministic route classification fallback
         clean_cand_act = extract_candidate_activity(msg)
-        cand_locs = [t for t in re.findall(r"\b[A-Za-z]+\b", msg_clean) if t.lower() not in GERUND_MAP and t.lower() not in STOP and len(t) >= 3]
-        clean_cand_place = known_place or (" ".join(cand_locs[:2]) if cand_locs else None)
+        clean_cand_place = known_place
+        if not clean_cand_place:
+            prep_m = re.search(r"\b(?:in|at|near|around)\s+([a-zA-Z\s\-]+?)(?:\s+(?:today|tomorrow|tonight|this|now|\d{1,2}(?:am|pm))|\?|$)", msg_clean, re.I)
+            if prep_m:
+                clean_cand_place = clean_and_validate_location(prep_m.group(1))
+            elif len(msg_clean.strip().split()) <= 3:
+                tokens = [w for w in re.findall(r"\b[A-Za-z0-9_\-]+\b", msg_clean) if w.lower() not in TEMPORAL_STOP_WORDS and w.lower() not in INVALID_LOCATION_WORDS]
+                cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in INVALID_LOCATION_WORDS and len(w) >= 3]
+                if cand_tokens:
+                    cand_str = " ".join(cand_tokens)
+                    clean_cand_place = clean_and_validate_location(cand_str) or cand_str
+
         is_oos_task = any(k in msg_lower for k in ["code", "python", "joke", "pizza", "stock", "shares", "crypto", "recipe", "invest"])
 
         if is_why_inquiry:
             intent = "meta_session"
             place = None
             act_cand = None
-        elif any(g in msg_lower for g in ["hello", "hi", "hey", "greetings", "good morning", "good evening"]):
+        elif re.search(r"\b(hello|hi+|hey+|greetings|good morning|good evening|good afternoon)\b", msg_lower) and not clean_cand_act and not clean_cand_place:
             intent = "smalltalk"
             place = None
             act_cand = None
@@ -776,7 +792,8 @@ def normal_route(
             })
     else:
         intent = r.intent
-        place = r.place_text if r.place_text and r.place_text.lower() in msg.lower() else known_place
+        raw_place = r.place_text if r.place_text and r.place_text.lower() in msg.lower() else None
+        place = clean_and_validate_location(raw_place) or known_place
         act_cand = r.activity_text or extract_candidate_activity(msg)
 
     is_out_of_scope_task = any(k in msg_lower for k in ["code", "python", "joke", "pizza", "stock", "shares", "crypto", "recipe", "invest"])

@@ -57,6 +57,12 @@ GERUND_MAP = {
     "bungee": "bungee jumping",
     "bungee jump": "bungee jumping",
     "bungee jumping": "bungee jumping",
+    "exercise": "exercise",
+    "exercising": "exercise",
+    "workout": "exercise",
+    "working out": "exercise",
+    "outdoor exercise": "exercise",
+    "physical exercise": "exercise",
     "go out": "general outdoor activity",
     "outdoor": "general outdoor activity",
     "generic_outdoor": "general outdoor activity"
@@ -69,6 +75,8 @@ def to_gerund(activity_raw: Optional[str]) -> str:
     for k, v in GERUND_MAP.items():
         if k in norm:
             return v
+    if norm in ("exercise", "exercising"):
+        return "exercise"
     if norm.endswith("ing"):
         return norm
     return f"{norm} activity"
@@ -306,21 +314,22 @@ def parse_turn_node(state: AgentState) -> Dict[str, Any]:
     from backend.llm_factory import clean_and_validate_location, TEMPORAL_STOP_WORDS, INVALID_LOCATION_WORDS
     raw_loc = clean_and_validate_location(extracted_loc)
 
-    # If raw_loc was not found by LLM and query is not follow-up, extract non-activity tokens as candidate location
+    # If raw_loc was not found by LLM and query is not follow-up, extract candidate location
     if not raw_loc and not is_followup:
-        non_loc_words = {
-            "cycling", "walking", "running", "driving", "outdoor", "activity", "is", "it",
-            "safe", "to", "for", "a", "the", "in", "at", "can", "could", "i", "we", "you",
-            "my", "our", "take", "bring", "along", "instead", "there", "here", "grandpa",
-            "grandma", "grandfather", "grandmother", "elderly", "senior", "child", "children",
-            "kid", "kids", "dog", "cat", "pet", "pets", "go", "come", "get", "do", "with",
-            "about", "how", "what", "tell", "me", "us", "okay", "ok", "fine", "and"
-        }
-        tokens = [w for w in re.findall(r"\b[A-Za-z0-9_\-]+\b", user_query) if w.lower() not in TEMPORAL_STOP_WORDS and w.lower() not in INVALID_LOCATION_WORDS]
-        cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in non_loc_words]
-        if cand_tokens:
-            cand_str = " ".join(cand_tokens)
-            raw_loc = cand_str
+        # Check preposition pattern (e.g. "in Delhi", "at Central Park", "near Bhopal")
+        prep_m = re.search(r"\b(?:in|at|near|around)\s+([a-zA-Z\s\-]+?)(?:\s+(?:today|tomorrow|tonight|this|now|\d{1,2}(?:am|pm))|\?|$)", user_query, re.I)
+        if prep_m:
+            cand = clean_and_validate_location(prep_m.group(1))
+            if cand:
+                raw_loc = cand
+
+        # Only check shorthand queries (<= 3 words, e.g. "Xqzvbnmtrw cycling") if no preposition
+        if not raw_loc and len(user_query.strip().split()) <= 3:
+            tokens = [w for w in re.findall(r"\b[A-Za-z0-9_\-]+\b", user_query) if w.lower() not in TEMPORAL_STOP_WORDS and w.lower() not in INVALID_LOCATION_WORDS]
+            cand_tokens = [w for w in tokens if w.lower() not in GERUND_MAP and w.lower() not in INVALID_LOCATION_WORDS and len(w) >= 3]
+            if cand_tokens:
+                cand_str = " ".join(cand_tokens)
+                raw_loc = clean_and_validate_location(cand_str) or cand_str
 
     # Activity resolution:
     # Carry last_activity ONLY for follow-up phrasing when user omits activity
