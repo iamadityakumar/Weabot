@@ -50,7 +50,13 @@ GERUND_MAP = {
     "hiking": "hiking",
     "climb": "mountain climbing",
     "yoga": "indoor yoga",
-    "indoor yoga": "indoor yoga",
+    "surf": "surfing",
+    "surfing": "surfing",
+    "kayak": "kayaking",
+    "kayaking": "kayaking",
+    "bungee": "bungee jumping",
+    "bungee jump": "bungee jumping",
+    "bungee jumping": "bungee jumping",
     "go out": "general outdoor activity",
     "outdoor": "general outdoor activity",
     "generic_outdoor": "general outdoor activity"
@@ -88,7 +94,9 @@ def extract_candidate_activity(query: str) -> Optional[str]:
         m = re.search(p, query, re.I)
         if m:
             cand = m.group(1).strip().lower()
-            cand = re.sub(r"\b(it|there|here|now|today|tomorrow|tonight|a|an|the|my)\b", "", cand).strip()
+            cand = re.sub(r"\b(it|there|here|now|today|tomorrow|tonight|a|an|the|my|go|going)\b", "", cand).strip()
+            if cand in GERUND_MAP:
+                return GERUND_MAP[cand]
             if len(cand) >= 3 and cand not in ("out", "outside", "weather", "air", "conditions"):
                 return cand
     return None

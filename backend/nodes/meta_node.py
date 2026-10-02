@@ -20,7 +20,62 @@ def meta_node(state: AgentState) -> Dict[str, Any]:
     act = turn_state.get("dialogue_act")
     query = turn_state.get("raw_query", "")
 
-    # 1. Challenge Act (#26)
+    # 1. Why / Policy Rationale Inquiry ("Why did you say that?", "Which SOP did you evaluate?", "Explain your reasoning")
+    if act == "why_inquiry" or any(k in query.lower() for k in ["why did you say", "why did it say", "why did you tell", "why?", "explain why", "which sop did you", "how did you decide", "what made you say"]):
+        if decision_log:
+            last_entry = decision_log[-1]
+            place = last_entry.get("place", "your location")
+            activity = last_entry.get("activity", "outdoor activity")
+            fired = last_entry.get("fired_sops", [])
+            evaluated = last_entry.get("evaluated_sops", [])
+            telemetry = last_entry.get("telemetry_numbers", {}) or {}
+
+            telemetry_parts = []
+            if telemetry.get("temperature_2m") is not None:
+                telemetry_parts.append(f"Temperature: {telemetry['temperature_2m']}°C")
+            if telemetry.get("wind_speed_10m") is not None:
+                telemetry_parts.append(f"Wind: {telemetry['wind_speed_10m']} km/h")
+            if telemetry.get("wind_gusts_10m") is not None:
+                telemetry_parts.append(f"Gusts: {telemetry['wind_gusts_10m']} km/h")
+            if telemetry.get("precipitation") is not None:
+                telemetry_parts.append(f"Precipitation: {telemetry['precipitation']} mm")
+            if telemetry.get("uv_index") is not None:
+                telemetry_parts.append(f"UV Index: {telemetry['uv_index']}")
+            telemetry_str = ", ".join(telemetry_parts) if telemetry_parts else "live meteorological observations"
+
+            if fired:
+                fired_str = ", ".join(f"[{s}]" for s in fired)
+                response = (
+                    f"That verdict was issued because active hazard advisory Standard Operating Procedure(s) {fired_str} fired for **{activity}** in **{place}**.\n\n"
+                    f"• **Live Meteorological Telemetry**: {telemetry_str}.\n"
+                    f"• **Policy Rationale**: Measured conditions exceeded the hazard alert thresholds defined in {fired_str}, requiring safety warnings."
+                )
+            else:
+                eval_str = ", ".join(f"[{s}]" for s in evaluated) if evaluated else "None"
+                response = (
+                    f"That verdict was issued because active Standard Operating Procedures {eval_str} covering **{activity}** were evaluated against live meteorological conditions in **{place}**.\n\n"
+                    f"• **Live Meteorological Telemetry**: {telemetry_str}.\n"
+                    f"• **Policy Rationale**: All measured meteorological parameters remained below the hazard alert thresholds defined in those SOPs.\n\n"
+                    "*(Note: Weabot verifies whether conditions exceed hazard thresholds and does not issue general safety endorsements. Please remain attentive to shifting weather.)*"
+                )
+        else:
+            response = (
+                "Weabot bases every safety decision on authorized Standard Operating Procedures (SOPs) evaluated against live meteorological telemetry from Open-Meteo. "
+                "No prior weather assessment has been recorded in this chat yet. Please specify an outdoor activity and a city to check current safety conditions."
+            )
+
+        return {
+            "final_response": response,
+            "sop_citations": last_entry.get("fired_sops", []) if decision_log else [],
+            "verdict": {
+                "status": SafetyStatus.NO_HAZARD_MATCHED.value,
+                "title": "Protocol Explanation · Audit Decision Log",
+                "severity": "low",
+                "summary": "Policy citation and meteorological rationale from decision log."
+            }
+        }
+
+    # 2. Challenge Act (#26)
     if act == "challenge":
         # Look up prior answers in decision_log
         if decision_log:

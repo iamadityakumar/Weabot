@@ -41,6 +41,53 @@ def location_fail_node(state: AgentState) -> Dict[str, Any]:
         "error_message": err_msg
     }
 
+def needs_location_node(state: AgentState) -> Dict[str, Any]:
+    """
+    Handles prompt for missing location:
+    User asks a weather/safety question with an activity but no location.
+    Bot asks: 'Which city or town would you like me to check?'
+    """
+    msg = "Which city or town would you like me to check?"
+    return {
+        "final_response": msg,
+        "sop_citations": [],
+        "verdict": {
+            "status": SafetyStatus.REFUSED.value,
+            "title": "Location Required",
+            "severity": "low",
+            "summary": msg
+        },
+        "weather_data": None,
+        "effective_weather": None,
+        "api_source": None,
+        "error_message": msg,
+        "awaiting_slot": "location"
+    }
+
+def needs_activity_node(state: AgentState) -> Dict[str, Any]:
+    """
+    Handles prompt for missing activity:
+    User asks with a location but no activity.
+    Bot asks: 'What outdoor activity are you planning in {location}?'
+    """
+    loc = state.get("location") or (state.get("pending_request") or {}).get("location") or state.get("place_text") or "your location"
+    msg = f"What outdoor activity are you planning in {loc}? Tell me what you'd like to do (e.g., cycling, walking, running, outdoor gathering), and I'll check live safety conditions for you."
+    return {
+        "final_response": msg,
+        "sop_citations": [],
+        "verdict": {
+            "status": SafetyStatus.NO_POLICY.value,
+            "title": "Activity Required",
+            "severity": "low",
+            "summary": f"What outdoor activity are you planning in {loc}?"
+        },
+        "weather_data": None,
+        "effective_weather": None,
+        "api_source": None,
+        "error_message": msg,
+        "awaiting_slot": "activity"
+    }
+
 def time_fail_node(state: AgentState) -> Dict[str, Any]:
     """
     Handles temporal resolution failures:

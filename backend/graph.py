@@ -21,9 +21,25 @@ from backend.nodes.failure_nodes import (
     location_fail_node,
     time_fail_node,
     data_fail_node,
+    needs_location_node,
+    needs_activity_node,
 )
 
 # Conditional Edge Checkers
+def check_route_branch(state: AgentState) -> str:
+    route = state.get("route")
+    if route:
+        if route in ("needs_location", "NEEDS_LOCATION"):
+            return "needs_location"
+        if route in ("needs_activity", "NEEDS_ACTIVITY"):
+            return "needs_activity"
+        if route in ("weather_safety", "resume_weather_safety", "WEATHER_SAFETY_READY"):
+            return "weather_safety"
+    intent = state.get("intent", "out_of_scope")
+    if intent in ("weather_safety", "resume_weather_safety"):
+        return "weather_safety"
+    return intent
+
 def check_location_branch(state: AgentState) -> str:
     turn_state = state.get("turn_state") or {}
     if turn_state.get("error_type") in ("location_fail", "ask_activity") or not turn_state.get("resolved_location"):
@@ -56,7 +72,9 @@ def build_safety_graph(checkpointer: bool = True):
       - about_bot: about_node -> END
       - meta_session: meta_node -> END
       - out_of_scope: scope_node -> END
-      - weather_safety:
+      - needs_location: needs_location_node -> END
+      - needs_activity: needs_activity_node -> END
+      - weather_safety / resume_weather_safety:
           resolve_location -> resolve_time -> fetch_weather -> verify_payload ->
           select_sops -> evaluate_sops -> resolve_precedence -> render -> guards -> log_decision
       failures: location_fail / time_fail / data_fail -> honest reply
@@ -70,6 +88,10 @@ def build_safety_graph(checkpointer: bool = True):
     builder.add_node("meta_node", meta_node)
     builder.add_node("scope_node", scope_node)
     
+    # Missing slot clarification nodes
+    builder.add_node("needs_location_node", needs_location_node)
+    builder.add_node("needs_activity_node", needs_activity_node)
+
     # Weather path nodes
     builder.add_node("resolve_location", resolve_location_node)
     builder.add_node("resolve_time", resolve_time_node)
@@ -93,9 +115,11 @@ def build_safety_graph(checkpointer: bool = True):
     # 3. Router Conditional Edges
     builder.add_conditional_edges(
         "route",
-        lambda s: s.get("intent", "out_of_scope"),
+        check_route_branch,
         {
             "weather_safety": "resolve_location",
+            "needs_location": "needs_location_node",
+            "needs_activity": "needs_activity_node",
             "smalltalk": "smalltalk_node",
             "about_bot": "about_node",
             "meta_session": "meta_node",
@@ -103,11 +127,13 @@ def build_safety_graph(checkpointer: bool = True):
         }
     )
 
-    # Non-weather terminal paths (Zero weather data carried)
+    # Non-weather / clarification terminal paths (Zero weather data carried)
     builder.add_edge("smalltalk_node", END)
     builder.add_edge("about_node", END)
     builder.add_edge("meta_node", END)
     builder.add_edge("scope_node", END)
+    builder.add_edge("needs_location_node", END)
+    builder.add_edge("needs_activity_node", END)
 
     # 4. Location branch (success vs location_fail / ask_activity)
     builder.add_conditional_edges(

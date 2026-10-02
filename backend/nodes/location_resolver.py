@@ -55,8 +55,8 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
         )
         return {"turn_state": turn_state}
 
-    # 3. Extract place candidate: place_text from router, raw_location, or preposition
-    q = (state.get("place_text") or turn_state.get("place_text") or turn_state.get("raw_location") or "").strip()
+    # 3. Extract place candidate: state location, pending_request, place_text, or preposition
+    q = (state.get("location") or (state.get("pending_request") or {}).get("location") or state.get("place_text") or turn_state.get("place_text") or turn_state.get("raw_location") or "").strip()
     if not q:
         from backend.llm_factory import clean_and_validate_location
         # Prioritize 'in', 'around', 'near' over 'at' (which often attaches to times e.g. 'at 1 PM' or venues 'at the park')
@@ -165,4 +165,8 @@ async def resolve_location_node(state: AgentState) -> Dict[str, Any]:
     canonical_act = GERUND_MAP.get(act, act) if act else act
     turn_state["activity"] = canonical_act
     turn_state["activity_label"] = to_gerund(canonical_act)
-    return {"turn_state": turn_state}
+    return {
+        "turn_state": turn_state,
+        "location": resolved["name"],
+        "activity": canonical_act
+    }

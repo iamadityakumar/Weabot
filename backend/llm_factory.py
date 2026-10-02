@@ -1,8 +1,73 @@
 import os
 import json
 import re
-from typing import Dict, Any, Optional, List
+import time
+from typing import Dict, Any, Optional, List, Tuple
 from backend.config import settings
+
+MODEL_CANONICAL_MAP = {
+    "gemini-3.8-flash": "gemini-3.8-flash",
+    "gemini 3.8 flash": "gemini-3.8-flash",
+    "gemini": "gemini-3.8-flash",
+    "flash": "gemini-3.8-flash",
+    "gemini-1.5-pro": "gemini-1.5-pro",
+    "gemini 1.5 pro": "gemini-1.5-pro",
+    "pro": "gemini-1.5-pro",
+    "qwen/qwen3.8-27b": "qwen/qwen3.8-27b",
+    "qwen 3.8 27b (groq)": "qwen/qwen3.8-27b",
+    "qwen": "qwen/qwen3.8-27b",
+    "groq": "qwen/qwen3.8-27b",
+    "openai/gpt-oss-120b": "openai/gpt-oss-120b",
+    "gpt-oss 120b (groq)": "openai/gpt-oss-120b",
+    "120b": "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b": "openai/gpt-oss-20b",
+    "gpt-oss 20b (groq)": "openai/gpt-oss-20b",
+    "20b": "openai/gpt-oss-20b",
+    "open-meteo-deterministic": "open-meteo-deterministic",
+    "open-meteo deterministic": "open-meteo-deterministic",
+    "deterministic": "open-meteo-deterministic",
+}
+
+MODEL_DISPLAY_NAMES = {
+    "gemini-3.8-flash": "Gemini 3.8 Flash",
+    "gemini-1.5-pro": "Gemini 1.5 Pro",
+    "qwen/qwen3.8-27b": "Qwen 3.8 27B (Groq)",
+    "openai/gpt-oss-120b": "GPT-OSS 120B (Groq)",
+    "openai/gpt-oss-20b": "GPT-OSS 20B (Groq)",
+    "open-meteo-deterministic": "Open-Meteo Deterministic",
+}
+
+def is_quota_exhausted_error(exc: Optional[Exception]) -> bool:
+    """
+    Detect whether an exception was caused by model rate-limiting, quota depletion,
+    capacity exhaustion, or daily token/request caps.
+    """
+    if not exc:
+        return False
+    msg = str(exc).lower()
+    exc_type = type(exc).__name__.lower()
+
+    if "429" in msg or getattr(exc, "status_code", None) == 429:
+        return True
+
+    quota_signatures = [
+        "resource_exhausted",
+        "resourceexhausted",
+        "quota exceeded",
+        "exceeded your current quota",
+        "rate limit",
+        "ratelimit",
+        "insufficient_quota",
+        "free_tier_requests",
+        "capacity",
+        "tokens per day",
+        "requests per day",
+        "tpd",
+        "rpd",
+        "overloaded",
+    ]
+    return any(sig in msg or sig in exc_type for sig in quota_signatures)
+
 
 INVALID_LOCATION_WORDS = {
     # Units of measurement and speed/time rates
@@ -94,8 +159,65 @@ class LLMFactory:
     def __init__(self):
         self.provider = settings.LLM_PROVIDER
         self._llm_cache: Dict[str, Any] = {}
+        self._exhausted_models: Dict[str, float] = {}  # canonical_id -> expiry_epoch
         default_model = settings.GROQ_MODEL if self.provider == "groq" else settings.GEMINI_MODEL
         self._default_llm = self._create_llm_instance(default_model)
+
+    def get_canonical_id(self, model_name: Optional[str]) -> str:
+        if not model_name:
+            return "gemini-3.8-flash"
+        norm = model_name.strip().lower()
+        if norm in MODEL_CANONICAL_MAP:
+            return MODEL_CANONICAL_MAP[norm]
+        for k, v in MODEL_CANONICAL_MAP.items():
+            if k in norm:
+                return v
+        return norm
+
+    def get_display_name(self, model_name: Optional[str]) -> str:
+        cid = self.get_canonical_id(model_name)
+        return MODEL_DISPLAY_NAMES.get(cid, model_name or "AI Model")
+
+    def mark_model_exhausted(self, model_name: Optional[str], duration_seconds: int = 3600, reason: str = ""):
+        cid = self.get_canonical_id(model_name)
+        expiry = time.time() + duration_seconds
+        self._exhausted_models[cid] = expiry
+        print(f"[LLMFactory] [QUOTA_EXHAUSTED] Marked model '{cid}' as quota-exhausted until {expiry:.0f} (reason: {reason})")
+
+    def is_model_exhausted(self, model_name: Optional[str]) -> bool:
+        cid = self.get_canonical_id(model_name)
+        expiry = self._exhausted_models.get(cid, 0)
+        return time.time() < expiry
+
+    def resolve_fallback_model(self, requested_model: Optional[str]) -> Tuple[str, bool]:
+        """
+        Determine the effective model. If requested model is exhausted, pick the best
+        available alternative that has verified credentials and is not exhausted.
+        Returns (effective_model_id, was_switched).
+        """
+        cid = self.get_canonical_id(requested_model)
+        if not self.is_model_exhausted(cid):
+            return cid, False
+
+        # Fallback priority hierarchy:
+        # 1. If Gemini was exhausted, try Groq Qwen
+        if "gemini" in cid:
+            if settings.GROQ_API_KEY and not self.is_model_exhausted("qwen/qwen3.8-27b"):
+                return "qwen/qwen3.8-27b", True
+            if settings.GROQ_API_KEY and not self.is_model_exhausted("openai/gpt-oss-120b"):
+                return "openai/gpt-oss-120b", True
+            return "open-meteo-deterministic", True
+
+        # 2. If Groq was exhausted, try other Groq or Gemini
+        if "qwen" in cid or "oss" in cid or "groq" in cid:
+            if settings.GROQ_API_KEY and not self.is_model_exhausted("openai/gpt-oss-120b") and cid != "openai/gpt-oss-120b":
+                return "openai/gpt-oss-120b", True
+            if settings.GEMINI_API_KEY and not self.is_model_exhausted("gemini-3.8-flash"):
+                return "gemini-3.8-flash", True
+            return "open-meteo-deterministic", True
+
+        # Default fallback
+        return "open-meteo-deterministic", True
 
     def _create_llm_instance(self, model_name: str) -> Optional[Any]:
         """Instantiate an LLM based on model name and environment credentials."""
@@ -150,8 +272,8 @@ class LLMFactory:
                     model=target_model,
                     google_api_key=api_key,
                     temperature=0.0,
-                    max_retries=1,
-                    timeout=15.0
+                    max_retries=0,
+                    timeout=10.0
                 )
                 self._llm_cache[model_name] = instance
                 print(f"[LLMFactory] Initialized Gemini model: {target_model}")
@@ -174,6 +296,7 @@ class LLMFactory:
         """
         Dynamically determine available models based on active API keys in settings.
         Only models that the app has actual access to (with valid credentials) are returned.
+        Includes real-time quota status and exhaustion indications.
         """
         models = []
 
@@ -255,6 +378,12 @@ class LLMFactory:
             "is_default": False
         })
 
+        # Annotate quota exhaustion status
+        for m in models:
+            is_ex = self.is_model_exhausted(m["id"])
+            m["is_exhausted"] = is_ex
+            m["exhaustion_reason"] = "Daily quota limit reached (429 RESOURCE_EXHAUSTED)" if is_ex else None
+
         return models
 
     def _extract_text_from_response(self, resp: Any) -> str:
@@ -324,6 +453,8 @@ Respond strictly with valid JSON without markdown fences:
 
                 return parsed
             except Exception as e:
+                if is_quota_exhausted_error(e):
+                    self.mark_model_exhausted(model_name, reason=f"extract_intent: {e}")
                 print(f"[LLMFactory] LLM intent extraction error ({e}); falling back to deterministic extraction.")
 
         # Deterministic extraction
@@ -508,6 +639,8 @@ or
                     if "sop_ids" in parsed and isinstance(parsed["sop_ids"], list):
                         return [str(x) for x in parsed["sop_ids"]]
             except Exception as e:
+                if is_quota_exhausted_error(e):
+                    self.mark_model_exhausted(model_name, reason=f"select_sop_candidates: {e}")
                 pass
 
         # Fallback keyword match
@@ -621,6 +754,8 @@ Compose a concise, grounded safety response citing the applicable live weather c
                 content = self._extract_text_from_response(resp)
                 return content.strip()
             except Exception as e:
+                if is_quota_exhausted_error(e):
+                    self.mark_model_exhausted(model_name, reason=f"compose_response: {e}")
                 print(f"[LLMFactory] LLM composition error ({e}); falling back to deterministic.")
 
         # Deterministic Grounded Guidance Fallback

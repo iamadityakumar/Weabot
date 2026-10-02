@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any
 from backend.agent_state import AgentState, SafetyStatus
-from backend.llm_factory import llm_factory
+from backend.llm_factory import llm_factory, is_quota_exhausted_error
 
 SMALLTALK_PROMPT = (
     "You are Weabot, a friendly outdoor-safety assistant. The user sent a greeting or "
@@ -38,8 +38,10 @@ def smalltalk_node(state: AgentState) -> Dict[str, Any]:
         reply = "Sounds good! Whenever you have an outdoor activity in mind, tell me the activity and place."
     else:
         # LLM response
+        req_model = state.get("requested_model")
+        eff_model, _ = llm_factory.resolve_fallback_model(req_model)
         try:
-            llm = llm_factory.get_llm(state.get("requested_model"))
+            llm = llm_factory.get_llm(eff_model)
             if llm:
                 response = llm.invoke([
                     ("system", SMALLTALK_PROMPT),
@@ -49,7 +51,9 @@ def smalltalk_node(state: AgentState) -> Dict[str, Any]:
                 reply = reply.strip().strip('"\'')
             else:
                 reply = FALLBACK_GREETING
-        except Exception:
+        except Exception as e:
+            if is_quota_exhausted_error(e):
+                llm_factory.mark_model_exhausted(eff_model, reason=f"smalltalk 429: {e}")
             reply = FALLBACK_GREETING
 
         # Output guards verification

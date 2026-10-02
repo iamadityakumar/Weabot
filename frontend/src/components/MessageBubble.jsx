@@ -15,7 +15,8 @@ import {
   MapPin,
   ChevronDown,
   ChevronUp,
-  Radio
+  Radio,
+  Zap
 } from 'lucide-react';
 
 function renderFormattedText(text) {
@@ -353,13 +354,25 @@ export default function MessageBubble({ message, userName = 'Aditya' }) {
             </button>
           </div>
 
-          {/* Model Attribution Badge */}
-          {message.modelUsed && (
-            <div className="flex items-center gap-1 text-[10.5px] font-medium text-purple-700/80 bg-purple-50/80 border border-purple-200/60 px-2 py-0.5 rounded-full shadow-2xs">
-              <Sparkles className="w-2.5 h-2.5 text-purple-500" />
-              <span className="truncate max-w-[150px]">{message.modelUsed}</span>
-            </div>
-          )}
+          {/* Model Attribution & Fallback Badge */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {message.quotaExhausted && (
+              <div 
+                title={`Quota limit was exhausted on ${message.exhaustedModel || 'requested model'}. Automatically processed via ${message.modelUsed}.`}
+                className="flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs shrink-0"
+              >
+                <Zap className="w-2.5 h-2.5 text-amber-600 fill-amber-500 shrink-0" />
+                <span className="truncate max-w-[170px]">Switched from {message.exhaustedModel || 'Exhausted Model'}</span>
+              </div>
+            )}
+
+            {message.modelUsed && (
+              <div className="flex items-center gap-1 text-[10.5px] font-medium text-purple-700/80 bg-purple-50/80 border border-purple-200/60 px-2 py-0.5 rounded-full shadow-2xs">
+                <Sparkles className="w-2.5 h-2.5 text-purple-500 shrink-0" />
+                <span className="truncate max-w-[150px]">{message.modelUsed}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

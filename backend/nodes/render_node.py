@@ -111,6 +111,8 @@ def render_node(state: AgentState) -> Dict[str, Any]:
 
     # 6. Render Body by Status
     sections = [header, time_line, telemetry_sentence]
+    if state.get("just_resolved_pending_slot"):
+        sections.insert(0, f"Got it — I'll check the current conditions in {place_name} for {activity_gerund}.")
 
     # Freshness inquiry handling (#5, #28)
     query_lower = (turn_state.get("raw_query") or "").lower()

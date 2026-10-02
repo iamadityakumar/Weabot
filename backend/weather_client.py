@@ -173,6 +173,82 @@ CITY_STUBS = {
             "relative_humidity_2m": "%",
             "is_day": ""
         }
+    },
+    "chicago": {
+        "name": "Chicago",
+        "latitude": 41.8781,
+        "longitude": -87.6298,
+        "timezone": "America/Chicago",
+        "admin1": "Illinois",
+        "country": "United States",
+        "current": {
+            "time": "2026-10-02T15:30",
+            "interval": 900,
+            "temperature_2m": 16.0,
+            "apparent_temperature": 15.5,
+            "precipitation": 0.0,
+            "precipitation_probability": 0,
+            "rain": 0.0,
+            "weather_code": 0,
+            "wind_speed_10m": 20.0,
+            "wind_gusts_10m": 32.4,
+            "uv_index": 3.0,
+            "relative_humidity_2m": 50,
+            "is_day": 1
+        },
+        "current_units": {
+            "time": "iso8601",
+            "interval": "seconds",
+            "temperature_2m": "°C",
+            "apparent_temperature": "°C",
+            "precipitation": "mm",
+            "precipitation_probability": "%",
+            "rain": "mm",
+            "weather_code": "wmo code",
+            "wind_speed_10m": "km/h",
+            "wind_gusts_10m": "km/h",
+            "uv_index": "",
+            "relative_humidity_2m": "%",
+            "is_day": ""
+        }
+    },
+    "delhi": {
+        "name": "Delhi",
+        "latitude": 28.6139,
+        "longitude": 77.2090,
+        "timezone": "Asia/Kolkata",
+        "admin1": "Delhi",
+        "country": "India",
+        "current": {
+            "time": "2026-10-02T15:30",
+            "interval": 900,
+            "temperature_2m": 29.0,
+            "apparent_temperature": 30.0,
+            "precipitation": 0.0,
+            "precipitation_probability": 0,
+            "rain": 0.0,
+            "weather_code": 0,
+            "wind_speed_10m": 10.0,
+            "wind_gusts_10m": 15.0,
+            "uv_index": 5.0,
+            "relative_humidity_2m": 55,
+            "is_day": 1
+        },
+        "current_units": {
+            "time": "iso8601",
+            "interval": "seconds",
+            "temperature_2m": "°C",
+            "apparent_temperature": "°C",
+            "precipitation": "mm",
+            "precipitation_probability": "%",
+            "rain": "mm",
+            "weather_code": "wmo code",
+            "wind_speed_10m": "km/h",
+            "wind_gusts_10m": "km/h",
+            "uv_index": "",
+            "relative_humidity_2m": "%",
+            "is_day": ""
+        }
     }
 }
 

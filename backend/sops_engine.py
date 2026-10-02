@@ -1,3 +1,8 @@
+# Caller/Importer: `backend/nodes/weather.py`, `evals/suites/*`, `run_evals.py`
+# API/Component affected: `SOPsEngine` in `backend/sops_engine.py`
+# Data schema: Policy YAML schema, Dict[str, Dict[str, Any]] mapping policy IDs
+# User prompt: "build comprehensive evaluation suite for Weabot at D:\IIIT B\MB with execution scripts run_evals.py, run_live_evals.py, run_release_gate.py."
+
 import os
 import re
 from pathlib import Path
@@ -150,6 +155,14 @@ class SOPsEngine:
                 raise RuntimeError(f"Startup fail-closed failure: {err_msg}")
 
         return len(self.sops)
+
+    def get_sop(self, sop_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a loaded SOP by its ID."""
+        return self.sops.get(sop_id)
+
+    def get_sop_by_id(self, sop_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a loaded SOP by its ID (alias for get_sop)."""
+        return self.sops.get(sop_id)
 
     def _validate_sop(self, data: Dict[str, Any], filename: str) -> None:
         """Enforce strict schema integrity on every SOP."""

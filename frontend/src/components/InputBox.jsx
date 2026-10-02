@@ -119,6 +119,7 @@ export default function InputBox({
                   <div className="max-h-60 overflow-y-auto py-1 space-y-1">
                     {modelList.map((m) => {
                       const isSelected = selectedModel === m.name || selectedModel === m.id;
+                      const isExhausted = Boolean(m.is_exhausted);
                       return (
                         <button
                           key={m.id || m.name}
@@ -130,21 +131,27 @@ export default function InputBox({
                           className={`w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
                             isSelected
                               ? 'bg-purple-100/70 text-purple-950 font-semibold'
+                              : isExhausted
+                              ? 'hover:bg-amber-50/50 text-gray-500 hover:text-gray-800'
                               : 'hover:bg-purple-50/50 text-gray-700 hover:text-gray-950'
                           }`}
                         >
                           <div className="flex flex-col min-w-0 pr-2">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="truncate">{m.name}</span>
-                              {m.tag && (
+                              {isExhausted ? (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold border border-amber-200 shrink-0">
+                                  Quota Limit
+                                </span>
+                              ) : m.tag ? (
                                 <span className="text-[9px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 font-normal shrink-0">
                                   {m.tag}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                             {m.provider && (
                               <span className="text-[10px] text-gray-400 font-normal mt-0.5">
-                                {m.provider}
+                                {isExhausted ? (m.exhaustion_reason || 'Daily quota limit reached') : m.provider}
                               </span>
                             )}
                           </div>

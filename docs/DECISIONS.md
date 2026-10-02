@@ -198,7 +198,51 @@ Open-Meteo geocoding API uses prefix and phonetics matching. Bare greetings like
 
 ---
 
-## 14. Known Gaps & Operational Limits
+## 15. Decision: Explicit Pending-Request State & Multi-Turn Clarification Protocol
+
+### Context
+In multi-turn safety dialogues, users frequently provide required parameters across multiple turns. For example:
+- **Turn 1**: *"What are the official high-wind safety guidelines for cycling?"* (Specifies activity `cycling`, lacks `location`).
+- **Turn 2**: *"Chicago"* (Provides missing slot `location`).
+
+Treating every message as a brand-new independent query caused the graph to forget Turn 1's activity context, re-prompting the user: *"What outdoor activity are you planning in Chicago?"*. Conversely, when a user later replied *"cycling"*, the system forgot the previously supplied location and asked: *"Which city or town?"*.
+
+### Non-Negotiable Architectural Rule
+> **A clarification response is not a new user request. It is a partial update to the pending request.**
+
+```mermaid
+flowchart TD
+    USER_MSG([USER MESSAGE]) --> INSPECT{awaiting_slot active?}
+    INSPECT -->|YES| UPDATE[UPDATE PENDING REQUEST<br>handle_pending_slot]
+    INSPECT -->|NO| CREATE[CREATE PENDING REQUEST<br>normal_route]
+    
+    UPDATE --> CHECK{Are required slots complete?}
+    CREATE --> CHECK
+    
+    CHECK -->|NO: Missing Slot| ASK[Route to NEEDS_*<br>Ask ONLY for missing slot<br>Wait for answer] --> END([END])
+    CHECK -->|YES: Complete| EXEC[WEATHER PIPELINE<br>resolve_location -> resolve_time -> fetch_weather<br>evaluate_sops -> resolve_precedence -> render]
+```
+
+### Decision
+1. **Explicit State Model**: Added `pending_request: dict | None` and `awaiting_slot: str | None` to `AgentState`.
+   ```python
+   pending_request = {
+       "original_query": "What are the official high-wind safety guidelines for cycling?",
+       "intent": "weather_safety",
+       "activity": "cycling",
+       "location": None,
+       "time_reference": None,
+   }
+   awaiting_slot = "location"
+   ```
+2. **Clarification Branching Before Normal Routing**: At the very beginning of `route_node`, inspect `state.get("awaiting_slot")`. If set and user has not explicitly pivoted to an out-of-scope/smalltalk topic, route directly to deterministic `handle_pending_slot()`.
+3. **Preservation of Original User Query**: The clarification answer (`"Chicago"`) updates only the parameter slot. The root query (`"What are the official high-wind safety guidelines for cycling?"`) remains intact.
+4. **Deterministic Canonicalization**: Clarification answers for activity are immediately canonicalized (`bike`, `biking`, `cycling`, `two wheels`, `pedaling`, `ride` $\to$ `cycling`).
+5. **State Invariant Enforcement**: Runtime consistency check `assert_pending_request_consistency(state)` guarantees that no request can enter `weather_safety` without verified parameters or while awaiting a slot.
+
+---
+
+## 16. Known Gaps & Operational Limits
 
 1. **Live Severe Weather Testing vs Local Calm**:
    - Live testing in target cities frequently encounters calm, clear weather. Real-time verification of severe storm overrides (`SOP-001`) relies on real Open-Meteo Archive API payloads (such as Cyclone Remal in Kolkata) and scripted per-city stubs.
@@ -208,4 +252,5 @@ Open-Meteo geocoding API uses prefix and phonetics matching. Bare greetings like
    - `SOP-008` (UV radiation hazard) triggers when physical `uv_index >= 8.0`. Even if a user queries an edge time (e.g. 10:59 AM vs 11:00 AM), the policy evaluates solely based on the physical ultraviolet index rather than engine clock gates.
 4. **Devanagari Script Boundary**:
    - Weabot currently accepts English and Latin transliterated inputs (e.g. *"Bhopal"*). Non-Latin scripts such as Devanagari (*"भोपाल"*) return an honest script limitation notice advising users to provide location in Latin characters.
+
 

@@ -1,5 +1,6 @@
 import uuid
 import json
+import mimetypes
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -8,6 +9,33 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
+
+# Ensure proper MIME types on Windows where .js may be mapped to text/plain
+mimetypes.init()
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("application/javascript", ".mjs")
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/svg+xml", ".svg")
+
+class WindowsSafeStaticFiles(StaticFiles):
+    """
+    Guarantees correct MIME types (especially for .js module scripts) on Windows,
+    where registry keys often incorrectly map .js to text/plain.
+    """
+    def file_response(self, full_path, stat_result, scope, status_code: int = 200):
+        resp = super().file_response(full_path, stat_result, scope, status_code)
+        path_str = str(full_path).lower()
+        if path_str.endswith(".js") or path_str.endswith(".mjs"):
+            resp.media_type = "application/javascript"
+            resp.headers["content-type"] = "application/javascript; charset=utf-8"
+        elif path_str.endswith(".css"):
+            resp.media_type = "text/css"
+            resp.headers["content-type"] = "text/css; charset=utf-8"
+        elif path_str.endswith(".svg"):
+            resp.media_type = "image/svg+xml"
+            resp.headers["content-type"] = "image/svg+xml"
+        return resp
+
 
 from backend.config import settings
 from backend.graph import safety_advisor_graph
@@ -45,6 +73,10 @@ class ChatResponse(BaseModel):
     verdict: Optional[Dict[str, Any]] = None
     model_used: Optional[str] = None
     api_source: Optional[Dict[str, Any]] = None
+    quota_exhausted: Optional[bool] = False
+    exhausted_model: Optional[str] = None
+    fallback_model: Optional[str] = None
+    fallback_notice: Optional[str] = None
 
 @app.get("/api/health")
 async def health_check():
@@ -233,12 +265,25 @@ async def chat_endpoint(request: ChatRequest):
     thread_id = request.thread_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     requested_model = request.model or settings.GEMINI_MODEL
+    effective_model, was_switched = llm_factory.resolve_fallback_model(requested_model)
+    quota_exhausted = was_switched
+    exhausted_model = llm_factory.get_display_name(requested_model) if was_switched else None
+    fallback_model = llm_factory.get_display_name(effective_model) if was_switched else None
+    fallback_notice = (
+        f"{exhausted_model} daily quota limit exhausted. Automatically switched to {fallback_model}."
+        if was_switched
+        else None
+    )
 
     try:
         initial_input = {
             "messages": [HumanMessage(content=request.message.strip())],
             "user_message": request.message.strip(),
-            "requested_model": requested_model,
+            "requested_model": effective_model,
+            "quota_exhausted": quota_exhausted,
+            "exhausted_model": exhausted_model,
+            "fallback_model": fallback_model,
+            "fallback_notice": fallback_notice,
         }
         result = await safety_advisor_graph.ainvoke(initial_input, config=config)
 
@@ -250,22 +295,17 @@ async def chat_endpoint(request: ChatRequest):
         verdict = result.get("verdict")
         api_source = result.get("api_source")
 
-        # Resolve friendly model name for client display
-        req_norm = (requested_model or "").lower()
-        if "qwen" in req_norm:
-            display_model_name = "Qwen 3.8 27B (Groq)"
-        elif "120b" in req_norm:
-            display_model_name = "GPT-OSS 120B (Groq)"
-        elif "20b" in req_norm:
-            display_model_name = "GPT-OSS 20B (Groq)"
-        elif "pro" in req_norm:
-            display_model_name = "Gemini 1.5 Pro"
-        elif "gemini" in req_norm or "flash" in req_norm or "3.8" in req_norm:
-            display_model_name = "Gemini 3.8 Flash"
-        elif "deterministic" in req_norm:
-            display_model_name = "Open-Meteo Deterministic"
-        else:
-            display_model_name = requested_model
+        # Check if graph encountered a quota exhaustion during execution
+        if bool(result.get("quota_exhausted")):
+            quota_exhausted = True
+            exhausted_model = result.get("exhausted_model") or exhausted_model
+            fallback_model = result.get("fallback_model") or fallback_model
+            fallback_notice = result.get("fallback_notice") or fallback_notice
+
+        # Effective model name for attribution
+        effective_model_used = result.get("model_used") or (
+            fallback_model if quota_exhausted else llm_factory.get_display_name(effective_model)
+        )
 
         # Auto-persist conversation history to enable unique shareable URLs
         try:
@@ -297,12 +337,16 @@ async def chat_endpoint(request: ChatRequest):
                 "sessionFacts": session_facts,
                 "verdict": verdict,
                 "apiSource": api_source,
-                "modelUsed": display_model_name,
+                "modelUsed": effective_model_used,
+                "quotaExhausted": quota_exhausted,
+                "exhaustedModel": exhausted_model,
+                "fallbackModel": fallback_model,
+                "fallbackNotice": fallback_notice,
                 "timestamp": now_iso
             }
             existing_data.setdefault("messages", []).extend([user_msg, bot_msg])
             existing_data["updated_at"] = now_iso
-            existing_data["model"] = display_model_name
+            existing_data["model"] = effective_model_used
             if "title" not in existing_data:
                 clean_text = request.message.strip()
                 existing_data["title"] = clean_text[:42] + ("..." if len(clean_text) > 42 else "")
@@ -320,8 +364,12 @@ async def chat_endpoint(request: ChatRequest):
             session_facts=session_facts,
             error_message=err_msg,
             verdict=verdict,
-            model_used=display_model_name,
-            api_source=api_source
+            model_used=effective_model_used,
+            api_source=api_source,
+            quota_exhausted=quota_exhausted,
+            exhausted_model=exhausted_model,
+            fallback_model=fallback_model,
+            fallback_notice=fallback_notice,
         )
 
     except Exception as e:
@@ -486,7 +534,7 @@ async def sync_chat_session(payload: SessionSyncPayload):
 # Mount static frontend build if it exists
 frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="static")
+    app.mount("/", WindowsSafeStaticFiles(directory=str(frontend_dist), html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

@@ -66,6 +66,14 @@ class AgentState(TypedDict, total=False):
     turn_state: TurnState
     session_state: SessionState
     
+    # Multi-turn clarification & pending request state
+    pending_request: Optional[Dict[str, Any]]
+    awaiting_slot: Optional[str]
+    location: Optional[str]
+    activity: Optional[str]
+    route: Optional[str]
+    just_resolved_pending_slot: Optional[bool]
+
     # Target graph intermediate state
     weather_data: Optional[Dict[str, Any]]
     effective_weather: Optional[Dict[str, Any]]
@@ -76,6 +84,11 @@ class AgentState(TypedDict, total=False):
     final_response: Optional[str]
     sop_citations: List[str]
     requested_model: Optional[str]
+    model_used: Optional[str]
+    quota_exhausted: Optional[bool]
+    exhausted_model: Optional[str]
+    fallback_model: Optional[str]
+    fallback_notice: Optional[str]
     api_source: Optional[Dict[str, Any]]
     
     # Backward compatibility slots
@@ -86,3 +99,36 @@ class AgentState(TypedDict, total=False):
     error_message: Optional[str]
     error_type: Optional[str]
     unknown_location_name: Optional[str]
+
+canonical_activity_ids = {
+    "cycling", "skydiving", "scootering", "riding a motorbike", "riding a motorcycle",
+    "running", "jogging", "walking", "driving", "commuting", "outdoor gathering",
+    "outdoor play", "park outing", "flying a drone", "swimming", "hiking",
+    "mountain climbing", "indoor yoga", "general outdoor activity",
+    "surfing", "kayaking", "bungee jumping"
+}
+
+def assert_pending_request_consistency(state: Dict[str, Any]):
+    """
+    Validates state integrity invariants for pending clarification requests.
+    Prevents ungrounded weather calls without verified parameters.
+    """
+    pending = state.get("pending_request")
+    if not pending:
+        return
+    if state.get("awaiting_slot") == "location":
+        assert pending.get("location") is None, f"Expected pending location to be None, got {pending.get('location')}"
+    if pending.get("location"):
+        assert pending["location"] != "", "Pending location cannot be empty string"
+    if pending.get("activity"):
+        assert pending["activity"] in canonical_activity_ids, f"Pending activity '{pending['activity']}' not in canonical_activity_ids"
+
+    # Strongest invariant: for any request that has entered weather_safety
+    route_name = state.get("route") or state.get("intent")
+    if route_name in ("weather_safety", "WEATHER_SAFETY_READY", "resume_weather_safety"):
+        loc = state.get("location") or (state.get("turn_state") and state.get("turn_state").get("resolved_location")) or (pending and pending.get("location"))
+        assert not (
+            state.get("awaiting_slot") is None
+            and not loc
+        ), f"Invariant violated: request entered weather_safety with awaiting_slot=None but no location in state: {state}"
+

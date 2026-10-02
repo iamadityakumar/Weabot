@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TopNavBar from './components/TopNavBar';
 import ChatThread from './components/ChatThread';
@@ -59,6 +60,9 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState(() => {
     return localStorage.getItem('cortex_selected_model') || 'Gemini 3.8 Flash';
   });
+
+  // Model Quota Exhaustion Alert state
+  const [quotaAlert, setQuotaAlert] = useState(null);
 
   // Layout and modal states
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -252,6 +256,26 @@ export default function App() {
 
     try {
       const data = await sendChatMessage(text, threadId, selectedModel);
+
+      // Handle automatic model switch if model limit was exhausted
+      if (data.quota_exhausted) {
+        setQuotaAlert({
+          exhaustedModel: data.exhausted_model,
+          fallbackModel: data.fallback_model,
+          notice: data.fallback_notice || `${data.exhausted_model} daily limit reached. Automatically switched to ${data.fallback_model}.`
+        });
+        if (data.fallback_model && data.fallback_model !== selectedModel) {
+          setSelectedModel(data.fallback_model);
+          localStorage.setItem('cortex_selected_model', data.fallback_model);
+        }
+        // Refresh available models list to show exhaustion tags
+        getAvailableModels()
+          .then((mdata) => {
+            if (mdata?.models) setAvailableModels(mdata.models);
+          })
+          .catch(() => {});
+      }
+
       const botMsg = {
         id: 'msg-' + (Date.now() + 1),
         sender: 'advisor',
@@ -261,7 +285,11 @@ export default function App() {
         sessionFacts: data.session_facts,
         verdict: data.verdict,
         apiSource: data.api_source,
-        modelUsed: data.model_used || selectedModel,
+        modelUsed: data.model_used || data.fallback_model || selectedModel,
+        quotaExhausted: Boolean(data.quota_exhausted),
+        exhaustedModel: data.exhausted_model,
+        fallbackModel: data.fallback_model,
+        fallbackNotice: data.fallback_notice,
         timestamp: new Date().toISOString(),
       };
       const finalMessages = [...newMessages, botMsg];
@@ -350,6 +378,33 @@ export default function App() {
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
           threadId={threadId}
         />
+
+        {/* Model Limit Exhaustion Alert Banner */}
+        {quotaAlert && (
+          <div className="mx-3 sm:mx-6 mt-2 mb-1 p-2.5 sm:p-3 bg-amber-50/95 border border-amber-300/80 rounded-2xl shadow-sm backdrop-blur-md flex items-center justify-between gap-3 text-xs text-amber-950 animate-fadeIn z-20">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1.5 bg-amber-100/90 text-amber-800 rounded-xl shrink-0">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="truncate">
+                <span className="font-semibold text-amber-900">
+                  {quotaAlert.exhaustedModel || 'Model'} limit exhausted:
+                </span>{' '}
+                <span className="text-amber-800">
+                  Switched automatically to <strong>{quotaAlert.fallbackModel}</strong>. Continuing without interruption.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuotaAlert(null)}
+              className="text-amber-700 hover:text-amber-950 font-bold px-2 py-1 hover:bg-amber-200/50 rounded-lg cursor-pointer transition-colors text-xs shrink-0"
+              title="Dismiss notice"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Central Workspace: Chat / Hero Greeting */}
         <ChatThread
