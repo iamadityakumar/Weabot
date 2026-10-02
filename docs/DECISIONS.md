@@ -151,7 +151,54 @@ This behavior is **deliberate and policy-calibrated**:
 
 ---
 
-## 10. Known Gaps & Operational Limits
+## 11. Decision: Router-First Entry Architecture & Dedicated Non-Weather Nodes
+
+### Context
+Prior workflows processed all inputs through a monolithic intake pipeline. This risked leaking weather telemetry context into non-weather inquiries (e.g. "who are you?", greetings, or joke requests) or attempting geocoding on conversational pleasantries.
+
+### Decision
+1. **Entry Point Placement**: The `route` node runs *before anything else* as the immediate successor to `START`.
+2. **5-Route Taxonomy**:
+   - `weather_safety`: Inquiries regarding outdoor activity safety, weather conditions, or travel -> routes to `resolve_location`.
+   - `smalltalk`: Greetings, goodbyes, thanks, and pleasantries -> routes to `smalltalk_node`.
+   - `about_bot`: System identity and capability disclosures -> routes to `about_node`.
+   - `meta_session`: Session history, past verdict challenges, and override attempts -> routes to `meta_node`.
+   - `out_of_scope`: Off-topic domains (recipes, coding, stocks, general knowledge) -> routes to `scope_node`.
+3. **Zero-Weather Isolation**: `about_node`, `scope_node`, and `smalltalk_node` execute without querying Open-Meteo and carry `weather_data: None`.
+4. **Guarded Conversational Agent**: `smalltalk_node` generates warm, brief conversational greetings via a small LLM call guarded by regex filters: any weather terminology, advice words, or digit-plus-unit strings cause an immediate fallback to a deterministic canned greeting.
+
+---
+
+## 12. Decision: Geocoding Guard with Candidate Ranking & Activity Verification
+
+### Context
+Open-Meteo geocoding API uses prefix and phonetics matching. Bare greetings like *"Hey"* or *"Hi"* frequently resolved to real geographic places (e.g. *Heijplaat, Netherlands*). Furthermore, queries mentioning only a city (*"Bhopal"*) lacked activity context.
+
+### Decision
+1. **Stop Word Filter**: A designated `STOP` set (`{"hey", "hi", "hello", "ok", "yes", "no", "now", "today", "here", "there", "test"}`) stops bare words from entering the geocoding client.
+2. **Top-5 Candidate Ranking**: Rather than blindly accepting the first hit, the geocoder fetches 5 candidate results and scores them using `difflib.SequenceMatcher`. A candidate must achieve a similarity score $\ge 0.8$ against the user's place string; otherwise, it is rejected with an honest refusal.
+3. **Mandatory Activity Verification**: If a valid geographic location is resolved but no outdoor activity is specified (e.g. *"Bhopal alone"*), the graph halts before fetching weather and returns a direct clarification request: *"What outdoor activity are you planning in {City}?"*, preventing spurious weather evaluations.
+
+---
+
+## 13. Decision: UI Neutrality & Sources Provenance Transparency
+
+### Context
+1. Bright green badges (e.g. *"CONDITIONS SAFE"*) create an unearned psychological perception that the system guarantees safety, violating regulatory zero-endorsement guidelines.
+2. Evaluators and enterprise auditors need immediate, verifiable proof of what external weather endpoints were queried, when, and with what latency.
+
+### Decision
+1. **Neutral Status Badge**: Replaced green check badges with a neutral slate-600 badge displaying `"No SOP thresholds exceeded."` for `NO_HAZARD_MATCHED` verdicts.
+2. **Conditional Weather Card**: The UI renders weather telemetry cards *only* when the status represents an actual weather evaluation with verified place and activity. Smalltalk, identity inquiries, and missing-input prompts display clean conversational text without weather cards.
+3. **Interactive "Sources" Inspector**: Added an expandable provenance drawer on weather messages displaying:
+   - Target place and coordinates ($\text{lat}, \text{lon}$).
+   - Exact Open-Meteo REST API request URL with all active query parameters.
+   - HTTP response code (`200 OK`).
+   - Query timestamp and execution latency in milliseconds.
+
+---
+
+## 14. Known Gaps & Operational Limits
 
 1. **Live Severe Weather Testing vs Local Calm**:
    - Live testing in target cities frequently encounters calm, clear weather. Real-time verification of severe storm overrides (`SOP-001`) relies on real Open-Meteo Archive API payloads (such as Cyclone Remal in Kolkata) and scripted per-city stubs.
