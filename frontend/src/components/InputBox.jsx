@@ -64,8 +64,9 @@ export default function InputBox({
   const modelList = availableModels.length > 0 ? availableModels : [
     { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', provider: 'Google DeepMind', tag: 'Fast & Grounded', color: 'text-purple-600 bg-purple-50' },
     { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', provider: 'Google DeepMind', tag: 'High Reasoning', color: 'text-blue-600 bg-blue-50' },
-    { id: 'llama-3.1-8b-instant', name: 'LLaMA 3.1 8B', provider: 'Groq Cloud', tag: 'Ultra-Fast', color: 'text-teal-600 bg-teal-50' },
-    { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'Groq Cloud', tag: 'Balanced', color: 'text-emerald-600 bg-emerald-50' },
+    { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (Groq)', provider: 'Groq Cloud', tag: 'Ultra-Fast', color: 'text-emerald-600 bg-emerald-50' },
+    { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B (Groq)', provider: 'Groq Cloud', tag: 'Deep Reasoning', color: 'text-teal-600 bg-teal-50' },
+    { id: 'open-meteo-deterministic', name: 'Open-Meteo Deterministic', provider: 'Safety Graph Engine', tag: 'Strict SOPs', color: 'text-rose-600 bg-rose-50' },
   ];
 
   return (

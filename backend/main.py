@@ -247,6 +247,23 @@ async def chat_endpoint(request: ChatRequest):
         err_msg = result.get("error_message")
         verdict = result.get("verdict")
 
+        # Resolve friendly model name for client display
+        req_norm = (requested_model or "").lower()
+        if "3.8" in req_norm or "flash" in req_norm:
+            display_model_name = "Gemini 3.8 Flash"
+        elif "pro" in req_norm:
+            display_model_name = "Gemini 1.5 Pro"
+        elif "120b" in req_norm:
+            display_model_name = "GPT-OSS 120B (Groq)"
+        elif "20b" in req_norm:
+            display_model_name = "GPT-OSS 20B (Groq)"
+        elif "qwen" in req_norm or "groq" in req_norm:
+            display_model_name = "Qwen 3.8 27B (Groq)"
+        elif "deterministic" in req_norm:
+            display_model_name = "Open-Meteo Deterministic"
+        else:
+            display_model_name = requested_model
+
         # Auto-persist conversation history to enable unique shareable URLs
         try:
             sessions_dir = settings.BASE_DIR / "sessions"
@@ -276,12 +293,12 @@ async def chat_endpoint(request: ChatRequest):
                 "weatherData": weather_data,
                 "sessionFacts": session_facts,
                 "verdict": verdict,
-                "modelUsed": requested_model,
+                "modelUsed": display_model_name,
                 "timestamp": now_iso
             }
             existing_data.setdefault("messages", []).extend([user_msg, bot_msg])
             existing_data["updated_at"] = now_iso
-            existing_data["model"] = requested_model
+            existing_data["model"] = display_model_name
             if "title" not in existing_data:
                 clean_text = request.message.strip()
                 existing_data["title"] = clean_text[:42] + ("..." if len(clean_text) > 42 else "")
@@ -299,7 +316,7 @@ async def chat_endpoint(request: ChatRequest):
             session_facts=session_facts,
             error_message=err_msg,
             verdict=verdict,
-            model_used=requested_model
+            model_used=display_model_name
         )
 
     except Exception as e:

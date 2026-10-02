@@ -8,6 +8,7 @@ from backend.nodes.location import (
     location_resolve_node,
     check_location_present,
     check_geocode_status,
+    model_identity_node,
 )
 from backend.nodes.weather import fetch_weather_node, check_weather_status
 from backend.nodes.matcher import match_sops_node, check_match_status
@@ -24,6 +25,7 @@ def build_safety_graph(checkpointer: bool = True):
     # Register Nodes
     builder.add_node("intake", intake_node)
     builder.add_node("out_of_scope", out_of_scope_node)
+    builder.add_node("model_identity", model_identity_node)
     builder.add_node("ask_location", ask_location_node)
     builder.add_node("location_resolve", location_resolve_node)
     builder.add_node("fetch_weather", fetch_weather_node)
@@ -36,19 +38,21 @@ def build_safety_graph(checkpointer: bool = True):
     # Entry point
     builder.add_edge(START, "intake")
 
-    # Branch 1: Location present vs missing vs out_of_scope
+    # Branch 1: Location present vs missing vs out_of_scope vs model_identity
     builder.add_conditional_edges(
         "intake",
         check_location_present,
         {
             "out_of_scope": "out_of_scope",
+            "model_identity": "model_identity",
             "ask_location": "ask_location",
             "resolve_location": "location_resolve",
         },
     )
 
-    # Out of scope and missing location terminal paths
+    # Out of scope, model identity, and missing location terminal paths
     builder.add_edge("out_of_scope", END)
+    builder.add_edge("model_identity", END)
     builder.add_edge("ask_location", END)
 
     # Branch 2: Geocoding success vs error

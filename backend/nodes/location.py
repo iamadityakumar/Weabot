@@ -25,6 +25,17 @@ def check_location_present(state: AgentState) -> str:
     if any(k in query_lower for k in out_of_scope_patterns):
         return "out_of_scope"
 
+    # 0.1 Model identity query check
+    model_query_patterns = [
+        "what model are you", "which model are you", "what model is this",
+        "which model is this", "what ai are you", "what ai is this", "who are you",
+        "what model do you use", "which model do you use", "what model are you using",
+        "which model are you using", "what llm are you", "which llm are you",
+        "what is your model", "what is the model", "tell me your model"
+    ]
+    if any(k in query_lower for k in model_query_patterns):
+        return "model_identity"
+
     # If the user message contains NO Latin alphabetic characters (e.g. emoji-only or symbols)
     if not re.search(r"[A-Za-z]", user_query):
         return "ask_location"
@@ -123,6 +134,48 @@ def ask_location_node(state: AgentState) -> Dict[str, Any]:
             "summary": "Please specify a city or town to retrieve verified live weather and safety advisories.",
             "activity": activity or "outdoor activity",
             "location": "Not specified"
+        }
+    }
+
+def model_identity_node(state: AgentState) -> Dict[str, Any]:
+    """Provides clear, direct attribution of the active AI model and engine architecture."""
+    from backend.config import settings
+    requested_model = state.get("requested_model") or settings.GEMINI_MODEL
+    norm = str(requested_model).lower()
+
+    if "3.8" in norm or "flash" in norm:
+        display_name = "Gemini 3.8 Flash (Google DeepMind)"
+    elif "pro" in norm:
+        display_name = "Gemini 1.5 Pro (Google DeepMind)"
+    elif "120b" in norm:
+        display_name = "GPT-OSS 120B (Groq Cloud)"
+    elif "20b" in norm:
+        display_name = "GPT-OSS 20B (Groq Cloud)"
+    elif "qwen" in norm or "groq" in norm:
+        display_name = "Qwen 3.8 27B (Groq Cloud)"
+    elif "deterministic" in norm:
+        display_name = "Open-Meteo Deterministic (Safety Graph Engine)"
+    else:
+        display_name = requested_model
+
+    msg = (
+        f"🤖 **Active AI Reasoning Model**: Currently operating with **{display_name}**.\n\n"
+        "I am **Weabot**, an Outdoor Activity Safety Advisor. I evaluate live numerical telemetry "
+        "from Open-Meteo against strict Standard Operating Procedures (SOPs).\n\n"
+        "You can switch my underlying model at any time using the model selector dropdown below. "
+        "Which city and activity would you like me to check safety for? 🌤️"
+    )
+    return {
+        "final_response": msg,
+        "sop_citations": [],
+        "error_message": None,
+        "verdict": {
+            "status": "INFO",
+            "title": f"Active Model · {display_name}",
+            "severity": "low",
+            "summary": f"Operating with {display_name}.",
+            "activity": "system",
+            "location": "cloud"
         }
     }
 

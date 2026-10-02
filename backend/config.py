@@ -37,7 +37,7 @@ class Settings:
     @property
     def GROQ_MODEL(self) -> str:
         reload_env()
-        return os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+        return os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
     @property
     def OPENAI_API_KEY(self) -> str:

@@ -99,47 +99,57 @@ export default function MessageBubble({ message, userName = 'Aditya' }) {
           {renderFormattedText(message.text)}
         </div>
 
-          {/* Action Row: Copy & Feedback */}
-          <div className="flex items-center gap-2 pl-0.5 pt-0.5 text-gray-400 text-[11px]">
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-100 cursor-pointer"
-              title="Copy message text"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-600" />
-                  <span className="text-[10px] text-emerald-600">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span className="text-[10px]">Copy</span>
-                </>
-              )}
-            </button>
+          {/* Action Row: Copy, Feedback & Model Attribution */}
+          <div className="flex items-center justify-between pl-0.5 pt-0.5 text-gray-400 text-[11px]">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 hover:text-gray-700 transition-colors p-1 rounded-md hover:bg-gray-100 cursor-pointer"
+                title="Copy message text"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span className="text-[10px] text-emerald-600">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span className="text-[10px]">Copy</span>
+                  </>
+                )}
+              </button>
 
-            <span className="text-gray-200">|</span>
+              <span className="text-gray-200">|</span>
 
-            <button
-              onClick={() => setFeedback(feedback === 'up' ? null : 'up')}
-              className={`p-1 rounded-md transition-colors cursor-pointer ${
-                feedback === 'up' ? 'text-purple-600 bg-purple-50' : 'hover:text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Helpful guidance"
-            >
-              <ThumbsUp className="w-3 h-3" />
-            </button>
+              <button
+                onClick={() => setFeedback(feedback === 'up' ? null : 'up')}
+                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  feedback === 'up' ? 'text-purple-600 bg-purple-50' : 'hover:text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Helpful guidance"
+              >
+                <ThumbsUp className="w-3 h-3" />
+              </button>
 
-            <button
-              onClick={() => setFeedback(feedback === 'down' ? null : 'down')}
-              className={`p-1 rounded-md transition-colors cursor-pointer ${
-                feedback === 'down' ? 'text-rose-600 bg-rose-50' : 'hover:text-gray-700 hover:bg-gray-100'
-              }`}
-              title="Unhelpful"
-            >
-              <ThumbsDown className="w-3 h-3" />
-            </button>
+              <button
+                onClick={() => setFeedback(feedback === 'down' ? null : 'down')}
+                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  feedback === 'down' ? 'text-rose-600 bg-rose-50' : 'hover:text-gray-700 hover:bg-gray-100'
+                }`}
+                title="Unhelpful"
+              >
+                <ThumbsDown className="w-3 h-3" />
+              </button>
+            </div>
+
+            {/* Model Attribution Badge */}
+            {message.modelUsed && (
+              <div className="flex items-center gap-1 text-[10.5px] font-medium text-purple-700/80 bg-purple-50/80 border border-purple-200/60 px-2 py-0.5 rounded-full shadow-2xs">
+                <Sparkles className="w-2.5 h-2.5 text-purple-500" />
+                <span className="truncate max-w-[150px]">{message.modelUsed}</span>
+              </div>
+            )}
           </div>
       </div>
     </div>

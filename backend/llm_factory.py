@@ -110,19 +110,17 @@ class LLMFactory:
             return None
 
         # Groq Cloud (Prioritized if a Groq model or open model is explicitly requested)
-        if settings.GROQ_API_KEY and ("groq" in norm or "llama" in norm or "deepseek" in norm or "qwen" in norm or (settings.GROQ_MODEL and settings.GROQ_MODEL.lower() in norm)):
+        if settings.GROQ_API_KEY and ("groq" in norm or "llama" in norm or "deepseek" in norm or "qwen" in norm or "oss" in norm or "gpt" in norm or (settings.GROQ_MODEL and settings.GROQ_MODEL.lower() in norm)):
             try:
                 from langchain_groq import ChatGroq
-                if "deepseek" in norm:
-                    groq_model = "deepseek-r1-distill-llama-70b"
-                elif "qwen" in norm or (settings.GROQ_MODEL and "qwen" in settings.GROQ_MODEL.lower()):
-                    groq_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
-                elif "70b" in norm:
-                    groq_model = "llama-3.3-70b-versatile"
-                elif "8b" in norm or "llama" in norm:
-                    groq_model = "llama-3.1-8b-instant"
+                if "120b" in norm:
+                    groq_model = "openai/gpt-oss-120b"
+                elif "20b" in norm:
+                    groq_model = "openai/gpt-oss-20b"
+                elif "qwen" in norm:
+                    groq_model = "qwen/qwen3.8-27b"
                 else:
-                    groq_model = settings.GROQ_MODEL or "llama-3.1-8b-instant"
+                    groq_model = settings.GROQ_MODEL or "qwen/qwen3.8-27b"
 
                 instance = ChatGroq(
                     model_name=groq_model,
@@ -136,7 +134,7 @@ class LLMFactory:
                 print(f"[LLMFactory] Groq initialization failed ({e}).")
 
         # Gemini Family
-        if settings.GEMINI_API_KEY and ("gemini" in norm or not norm or norm == (settings.GEMINI_MODEL or "").lower()):
+        if settings.GEMINI_API_KEY and ("gemini" in norm or not norm or norm == (settings.GEMINI_MODEL or "").lower() or "flash" in norm or "pro" in norm):
             try:
                 from langchain_google_genai import ChatGoogleGenerativeAI
                 api_key = settings.GEMINI_API_KEY
@@ -144,8 +142,6 @@ class LLMFactory:
                 # Resolve Gemini target model
                 if "pro" in norm:
                     target_model = "gemini-1.5-pro"
-                elif "flash" in norm:
-                    target_model = settings.GEMINI_MODEL or "gemini-3.8-flash"
                 else:
                     target_model = settings.GEMINI_MODEL or "gemini-3.8-flash"
 
@@ -183,7 +179,7 @@ class LLMFactory:
         # Gemini Family (checked via GEMINI_API_KEY)
         if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip():
             models.append({
-                "id": settings.GEMINI_MODEL or "gemini-3.8-flash",
+                "id": "gemini-3.8-flash",
                 "name": "Gemini 3.8 Flash",
                 "provider": "Google DeepMind",
                 "tag": "Fast & Grounded",
@@ -201,30 +197,27 @@ class LLMFactory:
 
         # Groq Cloud Family (checked via GROQ_API_KEY)
         if settings.GROQ_API_KEY and settings.GROQ_API_KEY.strip():
-            custom_groq = settings.GROQ_MODEL
-            if custom_groq:
-                clean_name = custom_groq.split("/")[-1].replace("-", " ").title()
-                models.append({
-                    "id": custom_groq,
-                    "name": clean_name if not clean_name.lower().startswith("groq") else custom_groq,
-                    "provider": "Groq Cloud",
-                    "tag": "Active Cloud",
-                    "color": "text-emerald-600 bg-emerald-50",
-                    "is_default": False
-                })
             models.append({
-                "id": "llama-3.1-8b-instant",
-                "name": "LLaMA 3.1 8B",
+                "id": "qwen/qwen3.8-27b",
+                "name": "Qwen 3.8 27B (Groq)",
                 "provider": "Groq Cloud",
                 "tag": "Ultra-Fast",
+                "color": "text-emerald-600 bg-emerald-50",
+                "is_default": False
+            })
+            models.append({
+                "id": "openai/gpt-oss-120b",
+                "name": "GPT-OSS 120B (Groq)",
+                "provider": "Groq Cloud",
+                "tag": "Deep Reasoning",
                 "color": "text-teal-600 bg-teal-50",
                 "is_default": False
             })
             models.append({
-                "id": "deepseek-r1-distill-llama-70b",
-                "name": "DeepSeek-R1 (Groq)",
-                "provider": "DeepSeek / Groq",
-                "tag": "Open Reasoning",
+                "id": "openai/gpt-oss-20b",
+                "name": "GPT-OSS 20B (Groq)",
+                "provider": "Groq Cloud",
+                "tag": "Balanced",
                 "color": "text-indigo-600 bg-indigo-50",
                 "is_default": False
             })
